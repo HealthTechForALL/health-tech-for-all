@@ -201,12 +201,11 @@
           </div>
           <div class="voice-controls">
             <button
-              @click="toggleVoiceChat"
-              :disabled="!isWebSpeechSupported || voiceStatus.isProcessing"
+              @click="startVoiceRecognition"
+              :disabled="!isWebSpeechSupported || voiceStatus.isProcessing || voiceStatus.isRecording"
               class="btn voice-btn"
-              :class="{ 'recording': voiceStatus.isRecording }"
             >
-              {{ voiceStatus.isRecording ? '以上です（症状を喋り終わったらここ押してください）' : '症状を聞かせる' }}
+              症状を聞かせる
             </button>
             <div
               v-if="!isWebSpeechSupported"
@@ -230,41 +229,91 @@
               >
                 <div v-if="voiceStatus.isRecording && !currentTranscript" class="listening-indicator">
                   🎤 症状を聞かせてください...<br>
-                  <small>（「以上です」や「おわります」と発言すると終了できます）</small>
+                  <small>（「以上です」や「おわります」と発言すると終了できます）</small><br>
+                  <small>（「やり直し」や「リセット」と発言すると文章がリセットされます）</small>
                 </div>
                 <div v-if="currentTranscript" class="current-transcript">
                   {{ currentTranscript }}
                 </div>
-                <div v-if="!voiceStatus.isRecording && !finalTranscript" class="waiting-voice">
+                <div v-if="!voiceStatus.isRecording && !finalTranscript && !allRecognizedText" class="waiting-voice">
                   音声認識待機中
                 </div>
                 <div v-if="allRecognizedText" class="final-transcript">
                   <strong>最終認識結果:</strong><br>
                   {{ allRecognizedText }}
                 </div>
+                <div v-if="voiceStatus.isProcessing" class="processing-indicator">
+                  🔍 症状を分析中...
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 音声認識結果の表示 -->
-          <div v-if="allRecognizedText" class="voice-result-section">
-            <h3>🎯 認識した症状</h3>
-            <div class="voice-result-content">
-              <div class="recognized-text">
-                {{ allRecognizedText }}
+          <!-- 症状分析結果表示 -->
+          <div
+            v-if="symptomsAnalysisResult"
+            class="symptoms-analysis-results"
+            :key="symptomsAnalysisTimestamp"
+          >
+            <h3>🩺 症状分析結果</h3>
+
+            <!-- 緊急度表示 -->
+            <div
+              :class="['emergency-indicator', symptomsAnalysisResult.is_emergency ? 'emergency' : 'normal']"
+            >
+              <span class="emergency-icon">
+                {{ symptomsAnalysisResult.is_emergency ? '🚨' : '✅' }}
+              </span>
+              <span class="emergency-text">
+                {{ symptomsAnalysisResult.is_emergency ? '緊急対応が必要な可能性があります' : '通常の症状です' }}
+              </span>
+            </div>
+
+            <!-- 緊急理由 -->
+            <div v-if="symptomsAnalysisResult.is_emergency && symptomsAnalysisResult.emergency_reasons.length > 0" class="emergency-reasons">
+              <h4>⚠️ 緊急対応が必要な理由：</h4>
+              <ul>
+                <li v-for="reason in symptomsAnalysisResult.emergency_reasons" :key="reason">
+                  {{ reason }}
+                </li>
+              </ul>
+              <div class="emergency-advice">
+                <strong>すぐに救急車を呼ぶか、最寄りの救急外来を受診してください。</strong>
               </div>
-              <div class="result-actions">
-                <p class="result-instruction">
-                  内容が正しければそのまま、違う場合は「症状を聞かせる」ボタンを押して再度お話しください。
-                </p>
-                <button
-                  @click="startVoiceRecognition"
-                  :disabled="voiceStatus.isRecording || voiceStatus.isProcessing"
-                  class="btn retry-btn"
+            </div>
+
+            <!-- 該当する症状カテゴリ -->
+            <div class="matched-categories">
+              <h4>📋 該当する症状カテゴリ：</h4>
+              <div class="category-tags">
+                <span
+                  v-for="category in symptomsAnalysisResult.matched_categories"
+                  :key="category"
+                  class="category-tag"
                 >
-                  症状を聞かせ直す
-                </button>
+                  {{ category }}
+                </span>
               </div>
+            </div>
+
+            <!-- 詳細分析 -->
+            <div v-if="symptomsAnalysisResult.analysis" class="analysis-detail">
+              <h4>🔍 詳細分析：</h4>
+              <p>{{ symptomsAnalysisResult.analysis }}</p>
+            </div>
+
+            <!-- 推奨事項 -->
+            <div v-if="symptomsAnalysisResult.recommendations" class="recommendations">
+              <h4>💡 推奨事項：</h4>
+              <p>{{ symptomsAnalysisResult.recommendations }}</p>
+            </div>
+
+            <!-- デバッグ情報 -->
+            <div class="debug-info">
+              <details>
+                <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">🔧 症状分析デバッグ情報（開発者用）</summary>
+                <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px; overflow-x: auto;">{{ JSON.stringify(symptomsAnalysisResult, null, 2) }}</pre>
+              </details>
             </div>
           </div>
         </div>
@@ -358,6 +407,14 @@ interface VoiceStatus {
   error: string | null;
 }
 
+interface SymptomsAnalysisResult {
+  matched_categories: string[];
+  is_emergency: boolean;
+  emergency_reasons: string[];
+  analysis: string;
+  recommendations: string;
+}
+
 // Refs
 const videoRef = ref<HTMLVideoElement>()
 const canvasRef = ref<HTMLCanvasElement>()
@@ -383,6 +440,8 @@ const currentTranscript = ref<string>('')
 const finalTranscript = ref<string>('')
 const allRecognizedText = ref<string>('')  // 全ての認識結果を蓄積
 const recognition = ref<SpeechRecognition | null>(null)
+const symptomsAnalysisResult = ref<SymptomsAnalysisResult | null>(null)
+const symptomsAnalysisTimestamp = ref<number>(0)
 
 // Computed
 const hasResult = computed(() => {
@@ -654,7 +713,7 @@ const speakMessage = (text: string): Promise<void> => {
   })
 }
 
-const checkForStopKeywords = (text: string): void => {
+const checkForStopKeywords = async (text: string): Promise<void> => {
   const stopKeywords = ['以上です', 'おわります', 'ありがとう', '終わり']
   const lowerText = text.toLowerCase()
 
@@ -662,6 +721,29 @@ const checkForStopKeywords = (text: string): void => {
     if (lowerText.includes(keyword)) {
       console.log(`終了キーワード "${keyword}" を検出しました`)
       stopVoiceRecognition()
+
+      // 症状をバックエンドに送信
+      if (allRecognizedText.value.trim()) {
+        await analyzeSymptomsWithBackend(allRecognizedText.value)
+      }
+
+      return
+    }
+  }
+}
+
+const checkForResetKeywords = (text: string): void => {
+  const resetKeywords = ['やり直し', 'リセット']
+  const lowerText = text.toLowerCase()
+
+  for (const keyword of resetKeywords) {
+    if (lowerText.includes(keyword)) {
+      console.log(`リセットキーワード "${keyword}" を検出しました`)
+      // 文章を初期化
+      finalTranscript.value = ''
+      currentTranscript.value = ''
+      allRecognizedText.value = ''
+      // 音声認識を継続（停止しない）
       return
     }
   }
@@ -700,8 +782,14 @@ const initSpeechRecognition = (): void => {
 
       currentTranscript.value = interim
       if (final) {
-        // 最終結果を allRecognizedText に蓄積
-        allRecognizedText.value += final
+        // リセットキーワードをチェック（最終結果に追加する前に）
+        checkForResetKeywords(final)
+
+        // リセットされていない場合のみ結果を蓄積
+        if (allRecognizedText.value !== '' || !['やり直し', 'リセット'].some(keyword => final.toLowerCase().includes(keyword))) {
+          allRecognizedText.value += final
+        }
+
         finalTranscript.value = final
         console.log('最終認識結果:', allRecognizedText.value)
 
@@ -709,9 +797,10 @@ const initSpeechRecognition = (): void => {
         checkForStopKeywords(final)
       }
 
-      // リアルタイムでも終了キーワードをチェック
+      // リアルタイムでも終了キーワードとリセットキーワードをチェック
       if (interim) {
         checkForStopKeywords(interim)
+        checkForResetKeywords(interim)
       }
     }
 
@@ -743,6 +832,8 @@ const startVoiceRecognition = async (): Promise<void> => {
   finalTranscript.value = ''
   currentTranscript.value = ''
   allRecognizedText.value = ''  // 蓄積された結果もクリア
+  symptomsAnalysisResult.value = null  // 症状分析結果もクリア
+  symptomsAnalysisTimestamp.value = 0
 
   try {
     // 音声案内を再生
@@ -767,15 +858,68 @@ const stopVoiceRecognition = (): void => {
   }
 }
 
-const toggleVoiceChat = async (): Promise<void> => {
-  if (voiceStatus.value.isProcessing) {
-    return // 処理中の場合は何もしない
-  }
+// Symptoms analysis method
+const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> => {
+  if (voiceStatus.value.isProcessing) return
 
-  if (voiceStatus.value.isRecording) {
-    stopVoiceRecognition()
-  } else {
-    await startVoiceRecognition()
+  console.log('Sending symptoms to backend:', symptomsText)
+  voiceStatus.value.isProcessing = true
+  voiceStatus.value.error = null
+
+  // Clear previous result
+  symptomsAnalysisResult.value = null
+  symptomsAnalysisTimestamp.value = 0
+
+  try {
+    const response = await fetch('/api/analyze-symptoms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ symptoms: symptomsText })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result: SymptomsAnalysisResult = await response.json()
+    console.log('Symptoms analysis response received:', result)
+
+    // Force reactivity by creating a completely new object
+    symptomsAnalysisResult.value = {
+      matched_categories: Array.isArray(result.matched_categories) ? result.matched_categories : [],
+      is_emergency: Boolean(result.is_emergency),
+      emergency_reasons: Array.isArray(result.emergency_reasons) ? result.emergency_reasons : [],
+      analysis: String(result.analysis || ''),
+      recommendations: String(result.recommendations || '')
+    }
+
+    // Update timestamp to force re-render
+    symptomsAnalysisTimestamp.value = Date.now()
+
+    console.log('Symptoms analysis result updated:', symptomsAnalysisResult.value)
+
+  } catch (error) {
+    console.error('Error analyzing symptoms:', error)
+
+    if (error instanceof Error) {
+      const errorMessage = error.message;
+
+      if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('Too Many Requests')) {
+        voiceStatus.value.error = `APIの利用制限に達しました。24時間後に再度お試しください。（1日50回まで）`
+      } else if (errorMessage.includes('400')) {
+        voiceStatus.value.error = `症状データが無効です。再度お試しください。`
+      } else if (errorMessage.includes('500')) {
+        voiceStatus.value.error = `サーバーエラーが発生しました。しばらく待ってから再度お試しください。`
+      } else {
+        voiceStatus.value.error = `症状分析中にエラーが発生しました: ${errorMessage}`
+      }
+    } else {
+      voiceStatus.value.error = '不明なエラーが発生しました'
+    }
+  } finally {
+    voiceStatus.value.isProcessing = false
   }
 }
 
@@ -1197,78 +1341,161 @@ h2 {
   font-style: italic;
 }
 
-/* Voice Result Section Styles */
-.voice-result-section {
-  margin-top: 30px;
-  background: #f0f8ff;
-  border-radius: 15px;
-  padding: 25px;
-  border: 2px solid #4CAF50;
-  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.2);
-}
-
-.voice-result-section h3 {
-  color: #2e7d32;
-  margin-bottom: 20px;
-  text-align: center;
-  font-size: 1.3em;
-}
-
-.voice-result-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.recognized-text {
-  background: white;
-  padding: 20px;
+/* 症状分析結果のスタイル */
+.symptoms-analysis-results {
+  margin-top: 20px;
+  background: #f8f9fa;
   border-radius: 10px;
-  border-left: 4px solid #4CAF50;
-  font-size: 16px;
-  line-height: 1.6;
-  color: #333;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 20px;
+  border-left: 5px solid #28a745;
 }
 
-.result-actions {
+.symptoms-analysis-results h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.2em;
   text-align: center;
 }
 
-.result-instruction {
-  background: #e8f5e8;
-  color: #2e7d32;
+.symptoms-analysis-results h4 {
+  color: #333;
+  margin-bottom: 10px;
+  margin-top: 15px;
+  font-size: 1em;
+}
+
+.emergency-indicator {
+  display: flex;
+  align-items: center;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
-  font-size: 14px;
-  line-height: 1.5;
-  border: 1px solid #c8e6c9;
-}
-
-.retry-btn {
-  background: linear-gradient(45deg, #FF9800, #F57C00);
-  color: white;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 16px;
   font-weight: bold;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+  font-size: 1.1em;
 }
 
-.retry-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
+.emergency-indicator.emergency {
+  background: #f8d7da;
+  color: #721c24;
+  border: 2px solid #f5c6cb;
+  animation: emergencyPulse 2s infinite;
 }
 
-.retry-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+.emergency-indicator.normal {
+  background: #d4edda;
+  color: #155724;
+  border: 2px solid #c3e6cb;
+}
+
+@keyframes emergencyPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+  }
+}
+
+.emergency-icon {
+  margin-right: 10px;
+  font-size: 1.3em;
+}
+
+.emergency-reasons {
+  background: #f8d7da;
+  border: 2px solid #dc3545;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.emergency-reasons h4 {
+  color: #721c24;
+  margin-top: 0;
+}
+
+.emergency-reasons ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.emergency-reasons li {
+  color: #721c24;
+  margin-bottom: 5px;
+}
+
+.emergency-advice {
+  background: #721c24;
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.matched-categories {
+  margin-bottom: 15px;
+}
+
+.category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.category-tag {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.analysis-detail {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #17a2b8;
+  margin-bottom: 15px;
+}
+
+.analysis-detail p {
+  line-height: 1.6;
+  margin: 0;
+  color: #333;
+}
+
+.recommendations {
+  background: #e3f2fd;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+  margin-bottom: 15px;
+}
+
+.recommendations p {
+  line-height: 1.6;
+  margin: 0;
+  color: #1976d2;
+}
+
+.processing-indicator {
+  text-align: center;
+  color: #667eea;
+  font-style: italic;
+  padding: 20px;
+  animation: processingBlink 1.5s infinite;
+}
+
+@keyframes processingBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.6; }
 }
 
 @media (max-width: 768px) {

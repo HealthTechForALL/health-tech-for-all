@@ -287,6 +287,199 @@ app.post('/api/analyze-image', async (req, res) => {
   }
 });
 
+// Symptoms analysis endpoint
+app.post('/api/analyze-symptoms', async (req, res) => {
+  try {
+    const { symptoms } = req.body;
+
+    if (!symptoms || typeof symptoms !== 'string') {
+      return res.status(400).json({ error: 'Symptoms text is required' });
+    }
+
+    // Rate limiting check (same as image analysis)
+    const now = new Date();
+    const today = now.toDateString();
+
+    if (!global.apiUsage) {
+      global.apiUsage = {};
+    }
+
+    if (!global.apiUsage[today]) {
+      global.apiUsage[today] = 0;
+    }
+
+    // Check if we've exceeded daily limit
+    if (global.apiUsage[today] >= 45) {
+      return res.status(429).json({
+        error: 'Daily API quota exceeded',
+        message: 'You have reached the daily limit of 45 requests. Please try again tomorrow.',
+        details: 'Google Gemini API free tier allows 50 requests per day. We limit to 45 to prevent service interruption.',
+        resetTime: new Date(now.getTime() + (24 * 60 * 60 * 1000)).toISOString()
+      });
+    }
+
+    // Get a generative model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `
+以下の症状の説明を分析して、どの症状カテゴリに該当するか判定してください。
+
+症状の説明: "${symptoms}"
+
+症状カテゴリ:
+- 発熱
+- 咳・喉の痛み
+- 花粉症
+- 鼻水
+- 頭痛
+- 吐き気・嘔吐
+- アレルギー
+- 腹痛
+- 下痢
+- 便秘
+- 皮膚症状
+- 胸痛
+- 腰痛・背部痛
+- 不眠・不安
+- その他症状
+
+また、以下の緊急症状に該当する場合は is_emergency を true にしてください：
+- 意識がない
+- ろれつが回らない
+- 今まで経験したことがない頭痛、腹痛
+- 頭を強く打った
+- 吐血している
+- 手足の動きが悪い、または動かない
+- けいれんをおこした、けいれんしている
+
+必ずJSONフォーマットで以下のように返してください：
+{
+  "matched_categories": ["該当する症状カテゴリの配列"],
+  "is_emergency": boolean,
+  "emergency_reasons": ["緊急の場合、該当する緊急症状の配列"],
+  "analysis": "症状の詳細分析",
+  "recommendations": "推奨される対応や注意点"
+}
+
+注意：
+- matched_categories は必ず上記の症状カテゴリから選んでください
+- 複数のカテゴリに該当する場合は配列に複数入れてください
+- 緊急症状に該当しない場合は is_emergency は false にしてください
+- emergency_reasons は緊急症状に該当する場合のみ記載してください
+`;
+
+    const result = await model.generateContent(prompt);
+
+    // Increment usage counter only after successful API call
+    global.apiUsage[today]++;
+    console.log(`API usage today: ${global.apiUsage[today]}/50`);
+
+    const response = await result.response;
+    const text = response.text();
+
+    // Try to parse JSON response
+    let analysisResult;
+    try {
+      // Clean the text response
+      let cleanText = text.trim();
+
+      // Try to extract JSON from the response if it's wrapped in other text
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanText = jsonMatch[0];
+      }
+
+      console.log('Symptoms AI raw response:', text);
+      console.log('Symptoms cleaned JSON:', cleanText);
+
+      const parsedResult = JSON.parse(cleanText);
+
+      analysisResult = {
+        matched_categories: Array.isArray(parsedResult.matched_categories) ? parsedResult.matched_categories : [],
+        is_emergency: parsedResult.is_emergency === true,
+        emergency_reasons: Array.isArray(parsedResult.emergency_reasons) ? parsedResult.emergency_reasons : [],
+        analysis: parsedResult.analysis || '',
+        recommendations: parsedResult.recommendations || ''
+      };
+
+      console.log('Parsed symptoms analysis result:', analysisResult);
+    } catch (e) {
+      console.log('Symptoms JSON parsing failed, using fallback:', e);
+
+      // Fallback analysis
+      const lowerSymptoms = symptoms.toLowerCase();
+      const categories = [];
+
+      // Simple keyword matching for fallback
+      if (lowerSymptoms.includes('熱') || lowerSymptoms.includes('発熱')) categories.push('発熱');
+      if (lowerSymptoms.includes('咳') || lowerSymptoms.includes('喉') || lowerSymptoms.includes('のど')) categories.push('咳・喉の痛み');
+      if (lowerSymptoms.includes('花粉')) categories.push('花粉症');
+      if (lowerSymptoms.includes('鼻水') || lowerSymptoms.includes('鼻')) categories.push('鼻水');
+      if (lowerSymptoms.includes('頭痛') || lowerSymptoms.includes('頭が痛い')) categories.push('頭痛');
+      if (lowerSymptoms.includes('吐き気') || lowerSymptoms.includes('嘔吐') || lowerSymptoms.includes('気持ち悪い')) categories.push('吐き気・嘔吐');
+      if (lowerSymptoms.includes('アレルギー')) categories.push('アレルギー');
+      if (lowerSymptoms.includes('腹痛') || lowerSymptoms.includes('お腹が痛い')) categories.push('腹痛');
+      if (lowerSymptoms.includes('下痢')) categories.push('下痢');
+      if (lowerSymptoms.includes('便秘')) categories.push('便秘');
+      if (lowerSymptoms.includes('皮膚') || lowerSymptoms.includes('かゆみ') || lowerSymptoms.includes('湿疹')) categories.push('皮膚症状');
+      if (lowerSymptoms.includes('胸痛') || lowerSymptoms.includes('胸が痛い')) categories.push('胸痛');
+      if (lowerSymptoms.includes('腰痛') || lowerSymptoms.includes('背中') || lowerSymptoms.includes('背部痛')) categories.push('腰痛・背部痛');
+      if (lowerSymptoms.includes('不眠') || lowerSymptoms.includes('不安') || lowerSymptoms.includes('眠れない')) categories.push('不眠・不安');
+
+      if (categories.length === 0) categories.push('その他症状');
+
+      // Check for emergency symptoms
+      const emergencyReasons = [];
+      let isEmergency = false;
+
+      if (lowerSymptoms.includes('意識がない') || lowerSymptoms.includes('意識を失う')) {
+        isEmergency = true;
+        emergencyReasons.push('意識がない');
+      }
+      if (lowerSymptoms.includes('ろれつが回らない')) {
+        isEmergency = true;
+        emergencyReasons.push('ろれつが回らない');
+      }
+      if (lowerSymptoms.includes('経験したことがない') && (lowerSymptoms.includes('頭痛') || lowerSymptoms.includes('腹痛'))) {
+        isEmergency = true;
+        emergencyReasons.push('今まで経験したことがない頭痛、腹痛');
+      }
+      if (lowerSymptoms.includes('頭を強く打った')) {
+        isEmergency = true;
+        emergencyReasons.push('頭を強く打った');
+      }
+      if (lowerSymptoms.includes('吐血')) {
+        isEmergency = true;
+        emergencyReasons.push('吐血している');
+      }
+      if (lowerSymptoms.includes('手足の動きが悪い') || lowerSymptoms.includes('動かない')) {
+        isEmergency = true;
+        emergencyReasons.push('手足の動きが悪い、または動かない');
+      }
+      if (lowerSymptoms.includes('けいれん')) {
+        isEmergency = true;
+        emergencyReasons.push('けいれんをおこした、けいれんしている');
+      }
+
+      analysisResult = {
+        matched_categories: categories,
+        is_emergency: isEmergency,
+        emergency_reasons: emergencyReasons,
+        analysis: text,
+        recommendations: "詳細な症状がある場合は医療機関にご相談ください。"
+      };
+    }
+
+    res.json(analysisResult);
+  } catch (error) {
+    console.error('Error analyzing symptoms:', error);
+    res.status(500).json({
+      error: 'Failed to analyze symptoms',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const today = new Date().toDateString();
