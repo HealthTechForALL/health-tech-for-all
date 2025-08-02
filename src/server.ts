@@ -149,12 +149,20 @@ app.post('/api/analyze-image', async (req, res) => {
 1. 健康保険証（保険証）かどうか
 2. おくすり手帳（薬手帳）かどうか
 3. 表紙だけでなく中身（詳細情報）がしっかり見える状態かどうか
+4. 健康保険証が真っ直ぐ撮影されているか（文字が傾いていないか）
+5. おくすり手帳が真っ直ぐ撮影されているか（文字が傾いていないか）
+6. 健康保険証の内容が指や手の反射・影で隠れているかどうか
+7. おくすり手帳の内容が指や手の反射・影で隠れているかどうか
 
 必ずJSONフォーマットで以下のように返してください：
 {
   "isHealthInsuranceCard": boolean,
   "isMedicineNotebook": boolean,
   "isContentVisible": boolean,
+  "isHealthInsuranceCardStraight": boolean,
+  "isMedicineNotebookStraight": boolean,
+  "isHealthInsuranceCardObstructed": boolean,
+  "isMedicineNotebookObstructed": boolean,
   "analysis": "詳細な分析結果",
   "suggestions": "改善点があれば提案"
 }
@@ -163,6 +171,11 @@ app.post('/api/analyze-image', async (req, res) => {
 - isHealthInsuranceCard: 健康保険証や保険証と明確に判定できる場合のみtrue、それ以外はfalse
 - isMedicineNotebook: おくすり手帳や薬手帳と明確に判定できる場合のみtrue、それ以外はfalse
 - isContentVisible: 文字や詳細情報がはっきりと読み取れる場合true、ぼやけている・見えない場合false
+- isHealthInsuranceCardStraight: 健康保険証の文字や枠線が水平に撮影されている場合true、傾いている場合false（健康保険証でない場合はfalse）
+- isMedicineNotebookStraight: おくすり手帳の文字や枠線が水平に撮影されている場合true、傾いている場合false（おくすり手帳でない場合はfalse）
+- isHealthInsuranceCardObstructed: 健康保険証の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（健康保険証でない場合はfalse）
+- isMedicineNotebookObstructed: おくすり手帳の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（おくすり手帳でない場合はfalse）
+
 また "analysis" の内容をしっかり反芻し、健康保険証やおくすり手帳ではありません。という結果の場合もしっかり isHealthInsuranceCard や isMedicineNotebook の値をfalseにしてください。
 
 「確認できません」「わかりません」「判定できません」といった場合は、該当するbool値をfalseにしてください。
@@ -210,6 +223,10 @@ app.post('/api/analyze-image', async (req, res) => {
         isHealthInsuranceCard: parsedResult.isHealthInsuranceCard === true,
         isMedicineNotebook: parsedResult.isMedicineNotebook === true,
         isContentVisible: parsedResult.isContentVisible === true,
+        isHealthInsuranceCardStraight: parsedResult.isHealthInsuranceCardStraight === true,
+        isMedicineNotebookStraight: parsedResult.isMedicineNotebookStraight === true,
+        isHealthInsuranceCardObstructed: parsedResult.isHealthInsuranceCardObstructed === true,
+        isMedicineNotebookObstructed: parsedResult.isMedicineNotebookObstructed === true,
         analysis: parsedResult.analysis || '',
         suggestions: parsedResult.suggestions || "画像をより鮮明に撮影してください"
       };
@@ -222,11 +239,16 @@ app.post('/api/analyze-image', async (req, res) => {
       const isHealthInsuranceCard = text.includes('保険証') || text.includes('健康保険証');
       const isMedicineNotebook = text.includes('おくすり手帳') || text.includes('薬手帳');
       const isNotDetected = text.includes('確認できません') || text.includes('わかりません') || text.includes('判定できません');
+      const isStraight = text.includes('真っ直ぐ') || text.includes('水平') || (text.includes('傾') && text.includes('ない'));
 
       analysisResult = {
         isHealthInsuranceCard: isNotDetected ? false : isHealthInsuranceCard,
         isMedicineNotebook: isNotDetected ? false : isMedicineNotebook,
         isContentVisible: text.includes('見える') || text.includes('読める') || text.includes('詳細'),
+        isHealthInsuranceCardStraight: isNotDetected ? false : (isHealthInsuranceCard && isStraight),
+        isMedicineNotebookStraight: isNotDetected ? false : (isMedicineNotebook && isStraight),
+        isHealthInsuranceCardObstructed: isNotDetected ? false : (isHealthInsuranceCard && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
+        isMedicineNotebookObstructed: isNotDetected ? false : (isMedicineNotebook && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
         analysis: text,
         suggestions: "画像をより鮮明に撮影してください"
       };

@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <div class="container">
-      <h1>📋 健康保険証・おくすり手帳 リアルタイム判定システム</h1>
+      <h1>📋 健康保険証・おくすり手帳 判定システム</h1>
 
       <div class="main-content">
         <!-- Camera Section -->
@@ -93,6 +93,46 @@
                 <span class="debug-value">isContentVisible: {{ analysisResult!.isContentVisible }}</span>
               </div>
 
+              <!-- Health Insurance Card Orientation Status -->
+              <div
+                v-if="analysisResult!.isHealthInsuranceCard"
+                :class="['status-indicator', getStatusClass(analysisResult!.isHealthInsuranceCardStraight)]"
+              >
+                <span class="status-icon">📐</span>
+                <span>{{ healthInsuranceOrientationMessage }}</span>
+                <span class="debug-value">isHealthInsuranceCardStraight: {{ analysisResult!.isHealthInsuranceCardStraight }}</span>
+              </div>
+
+              <!-- Medicine Notebook Orientation Status -->
+              <div
+                v-if="analysisResult!.isMedicineNotebook"
+                :class="['status-indicator', getStatusClass(analysisResult!.isMedicineNotebookStraight)]"
+              >
+                <span class="status-icon">📐</span>
+                <span>{{ medicineNotebookOrientationMessage }}</span>
+                <span class="debug-value">isMedicineNotebookStraight: {{ analysisResult!.isMedicineNotebookStraight }}</span>
+              </div>
+
+              <!-- Health Insurance Card Obstruction Status -->
+              <div
+                v-if="analysisResult!.isHealthInsuranceCard"
+                :class="['status-indicator', getStatusClass(!analysisResult!.isHealthInsuranceCardObstructed)]"
+              >
+                <span class="status-icon">🤚</span>
+                <span>{{ healthInsuranceObstructionMessage }}</span>
+                <span class="debug-value">isHealthInsuranceCardObstructed: {{ analysisResult!.isHealthInsuranceCardObstructed }}</span>
+              </div>
+
+              <!-- Medicine Notebook Obstruction Status -->
+              <div
+                v-if="analysisResult!.isMedicineNotebook"
+                :class="['status-indicator', getStatusClass(!analysisResult!.isMedicineNotebookObstructed)]"
+              >
+                <span class="status-icon">🤚</span>
+                <span>{{ medicineNotebookObstructionMessage }}</span>
+                <span class="debug-value">isMedicineNotebookObstructed: {{ analysisResult!.isMedicineNotebookObstructed }}</span>
+              </div>
+
               <!-- Analysis Text -->
               <div
                 v-if="analysisResult!.analysis"
@@ -133,6 +173,10 @@ interface AnalysisResult {
   isHealthInsuranceCard: boolean;
   isMedicineNotebook: boolean;
   isContentVisible: boolean;
+  isHealthInsuranceCardStraight: boolean;
+  isMedicineNotebookStraight: boolean;
+  isHealthInsuranceCardObstructed: boolean;
+  isMedicineNotebookObstructed: boolean;
   analysis: string;
   suggestions: string;
 }
@@ -188,6 +232,34 @@ const contentVisibilityMessage = computed(() => {
   return analysisResult.value.isContentVisible
     ? '✅ 内容がしっかり見えています'
     : '❌ 内容が見えにくい状態です'
+})
+
+const healthInsuranceOrientationMessage = computed(() => {
+  if (!analysisResult.value) return ''
+  return analysisResult.value.isHealthInsuranceCardStraight
+    ? '✅ 健康保険証が真っ直ぐ撮影されています'
+    : '❌ 健康保険証が傾いて撮影されています'
+})
+
+const medicineNotebookOrientationMessage = computed(() => {
+  if (!analysisResult.value) return ''
+  return analysisResult.value.isMedicineNotebookStraight
+    ? '✅ おくすり手帳が真っ直ぐ撮影されています'
+    : '❌ おくすり手帳が傾いて撮影されています'
+})
+
+const healthInsuranceObstructionMessage = computed(() => {
+  if (!analysisResult.value) return ''
+  return !analysisResult.value.isHealthInsuranceCardObstructed
+    ? '✅ 健康保険証の内容が隠れていません'
+    : '❌ 健康保険証の内容が指や反射で隠れています'
+})
+
+const medicineNotebookObstructionMessage = computed(() => {
+  if (!analysisResult.value) return ''
+  return !analysisResult.value.isMedicineNotebookObstructed
+    ? '✅ おくすり手帳の内容が隠れていません'
+    : '❌ おくすり手帳の内容が指や反射で隠れています'
 })
 
 // Watch for changes (for debugging)
@@ -293,12 +365,20 @@ const captureAndAnalyze = async (): Promise<void> => {
     console.log('isHealthInsuranceCard value:', result.isHealthInsuranceCard, typeof result.isHealthInsuranceCard)
     console.log('isMedicineNotebook value:', result.isMedicineNotebook, typeof result.isMedicineNotebook)
     console.log('isContentVisible value:', result.isContentVisible, typeof result.isContentVisible)
+    console.log('isHealthInsuranceCardStraight value:', result.isHealthInsuranceCardStraight, typeof result.isHealthInsuranceCardStraight)
+    console.log('isMedicineNotebookStraight value:', result.isMedicineNotebookStraight, typeof result.isMedicineNotebookStraight)
+    console.log('isHealthInsuranceCardObstructed value:', result.isHealthInsuranceCardObstructed, typeof result.isHealthInsuranceCardObstructed)
+    console.log('isMedicineNotebookObstructed value:', result.isMedicineNotebookObstructed, typeof result.isMedicineNotebookObstructed)
 
     // Force reactivity by creating a completely new object
     analysisResult.value = {
       isHealthInsuranceCard: Boolean(result.isHealthInsuranceCard),
       isMedicineNotebook: Boolean(result.isMedicineNotebook),
       isContentVisible: Boolean(result.isContentVisible),
+      isHealthInsuranceCardStraight: Boolean(result.isHealthInsuranceCardStraight),
+      isMedicineNotebookStraight: Boolean(result.isMedicineNotebookStraight),
+      isHealthInsuranceCardObstructed: Boolean(result.isHealthInsuranceCardObstructed),
+      isMedicineNotebookObstructed: Boolean(result.isMedicineNotebookObstructed),
       analysis: String(result.analysis || ''),
       suggestions: String(result.suggestions || '')
     }
