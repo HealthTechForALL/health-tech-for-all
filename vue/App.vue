@@ -191,9 +191,14 @@
           </div>
         </div>
 
-        <!-- 音声会話機能 -->
+        <!-- 症状チェックコーナー -->
         <div class="voice-chat-section">
-          <h2>🗣️ 音声会話機能</h2>
+          <h2>🩺 症状チェックコーナー</h2>
+          <div class="voice-intro">
+            <p class="intro-message">はじめまして！「症状を聞かせる」ボタンを押した後、症状を教えてください！</p>
+            <br />
+            <p class="example-message">例）12/04頃から発熱。頭も少し痛い。</p>
+          </div>
           <div class="voice-controls">
             <button
               @click="toggleVoiceChat"
@@ -201,7 +206,7 @@
               class="btn voice-btn"
               :class="{ 'recording': voiceStatus.isRecording }"
             >
-              {{ voiceStatus.isRecording ? '会話終了' : '話しかける' }}
+              {{ voiceStatus.isRecording ? '以上です（症状を喋り終わったらここ押してください）' : '症状を聞かせる' }}
             </button>
             <div
               v-if="!isWebSpeechSupported"
@@ -224,7 +229,7 @@
                 :class="{ 'listening': voiceStatus.isRecording }"
               >
                 <div v-if="voiceStatus.isRecording && !currentTranscript" class="listening-indicator">
-                  🎤 話しかけてください...
+                  🎤 症状を聞かせてください...
                 </div>
                 <div v-if="currentTranscript" class="current-transcript">
                   {{ currentTranscript }}
@@ -232,10 +237,32 @@
                 <div v-if="!voiceStatus.isRecording && !finalTranscript" class="waiting-voice">
                   音声認識待機中
                 </div>
-                <div v-if="finalTranscript" class="final-transcript">
+                <div v-if="allRecognizedText" class="final-transcript">
                   <strong>最終認識結果:</strong><br>
-                  {{ finalTranscript }}
+                  {{ allRecognizedText }}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 音声認識結果の表示 -->
+          <div v-if="allRecognizedText" class="voice-result-section">
+            <h3>🎯 認識した症状</h3>
+            <div class="voice-result-content">
+              <div class="recognized-text">
+                {{ allRecognizedText }}
+              </div>
+              <div class="result-actions">
+                <p class="result-instruction">
+                  内容が正しければそのまま、違う場合は「症状を聞かせる」ボタンを押して再度お話しください。
+                </p>
+                <button
+                  @click="startVoiceRecognition"
+                  :disabled="voiceStatus.isRecording"
+                  class="btn retry-btn"
+                >
+                  症状を聞かせ直す
+                </button>
               </div>
             </div>
           </div>
@@ -351,6 +378,7 @@ const analysisTimestamp = ref<number>(0)
 // Voice recognition related refs
 const currentTranscript = ref<string>('')
 const finalTranscript = ref<string>('')
+const allRecognizedText = ref<string>('')  // 全ての認識結果を蓄積
 const recognition = ref<SpeechRecognition | null>(null)
 
 // Computed
@@ -597,6 +625,32 @@ const getStatusClass = (isPositive: boolean): string => {
 }
 
 // Voice Recognition Methods
+const speakMessage = (text: string): Promise<void> => {
+  return new Promise((resolve) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'ja-JP'
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+
+      utterance.onend = () => {
+        resolve()
+      }
+
+      utterance.onerror = () => {
+        console.error('音声合成エラー')
+        resolve() // エラーでも処理を続行
+      }
+
+      speechSynthesis.speak(utterance)
+    } else {
+      console.warn('音声合成はサポートされていません')
+      resolve()
+    }
+  })
+}
+
 const initSpeechRecognition = (): void => {
   if (!isWebSpeechSupported.value) return
 
@@ -630,8 +684,10 @@ const initSpeechRecognition = (): void => {
 
       currentTranscript.value = interim
       if (final) {
+        // 最終結果を allRecognizedText に蓄積
+        allRecognizedText.value += final
         finalTranscript.value = final
-        console.log('最終認識結果:', final)
+        console.log('最終認識結果:', allRecognizedText.value)
       }
     }
 
@@ -648,10 +704,18 @@ const initSpeechRecognition = (): void => {
   }
 }
 
-const startVoiceRecognition = (): void => {
+const startVoiceRecognition = async (): Promise<void> => {
   if (!recognition.value) {
     initSpeechRecognition()
   }
+
+  // 新しい認識を開始する際に前の結果をクリア
+  finalTranscript.value = ''
+  currentTranscript.value = ''
+  allRecognizedText.value = ''  // 蓄積された結果もクリア
+
+  // 音声案内を再生
+  await speakMessage('症状を教えてください！')
 
   if (recognition.value) {
     try {
@@ -669,11 +733,11 @@ const stopVoiceRecognition = (): void => {
   }
 }
 
-const toggleVoiceChat = (): void => {
+const toggleVoiceChat = async (): Promise<void> => {
   if (voiceStatus.value.isRecording) {
     stopVoiceRecognition()
   } else {
-    startVoiceRecognition()
+    await startVoiceRecognition()
   }
 }
 
@@ -941,6 +1005,37 @@ h2 {
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
+.voice-intro {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.intro-message {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  color: #1976d2;
+  padding: 15px 20px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 500;
+  border: 2px solid #bbdefb;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.example-message {
+  background: linear-gradient(135deg, #f3e5f5 0%, #fce4ec 100%);
+  color: #7b1fa2;
+  padding: 12px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 400;
+  border: 2px solid #e1bee7;
+  box-shadow: 0 2px 6px rgba(123, 31, 162, 0.1);
+  display: inline-block;
+  font-style: italic;
+}
+
 .voice-controls {
   text-align: center;
   margin-bottom: 20px;
@@ -1054,6 +1149,80 @@ h2 {
   text-align: center;
   padding: 30px;
   font-style: italic;
+}
+
+/* Voice Result Section Styles */
+.voice-result-section {
+  margin-top: 30px;
+  background: #f0f8ff;
+  border-radius: 15px;
+  padding: 25px;
+  border: 2px solid #4CAF50;
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.2);
+}
+
+.voice-result-section h3 {
+  color: #2e7d32;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.3em;
+}
+
+.voice-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.recognized-text {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #4CAF50;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.result-actions {
+  text-align: center;
+}
+
+.result-instruction {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid #c8e6c9;
+}
+
+.retry-btn {
+  background: linear-gradient(45deg, #FF9800, #F57C00);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+}
+
+.retry-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
+}
+
+.retry-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 768px) {
