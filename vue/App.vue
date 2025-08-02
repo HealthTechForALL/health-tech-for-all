@@ -133,6 +133,36 @@
                 <span class="debug-value">isMedicineNotebookObstructed: {{ analysisResult!.isMedicineNotebookObstructed }}</span>
               </div>
 
+              <!-- Personal Information Reading Status -->
+              <div
+                v-if="analysisResult!.isHealthInsuranceCard"
+                :class="['status-indicator', getStatusClass(analysisResult!.canReadPersonalInfo)]"
+              >
+                <span class="status-icon">📋</span>
+                <span>{{ personalInfoMessage }}</span>
+                <span class="debug-value">canReadPersonalInfo: {{ analysisResult!.canReadPersonalInfo }}</span>
+              </div>
+
+              <!-- Personal Information Details -->
+              <div
+                v-if="analysisResult!.canReadPersonalInfo && hasPersonalInfo"
+                class="personal-info-details"
+              >
+                <h3>📝 読み取った個人情報</h3>
+                <div class="personal-info-item" v-if="analysisResult!.personalInfo.name">
+                  <span class="info-label">氏名:</span>
+                  <span class="info-value">{{ analysisResult!.personalInfo.name }}</span>
+                </div>
+                <div class="personal-info-item" v-if="analysisResult!.personalInfo.birthDate">
+                  <span class="info-label">生年月日:</span>
+                  <span class="info-value">{{ analysisResult!.personalInfo.birthDate }}</span>
+                </div>
+                <div class="personal-info-item" v-if="analysisResult!.personalInfo.gender">
+                  <span class="info-label">性別:</span>
+                  <span class="info-value">{{ analysisResult!.personalInfo.gender }}</span>
+                </div>
+              </div>
+
               <!-- Analysis Text -->
               <div
                 v-if="analysisResult!.analysis"
@@ -160,6 +190,11 @@
             </div>
           </div>
         </div>
+
+        <!-- 音声会話機能 -->
+        <div class="voice-chat-section">
+          <h2>🗣️ 音声会話機能</h2>
+        </div>
       </div>
     </div>
   </div>
@@ -169,6 +204,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 
 // Type definitions
+interface PersonalInfo {
+  birthDate: string;
+  name: string;
+  gender: string;
+}
+
 interface AnalysisResult {
   isHealthInsuranceCard: boolean;
   isMedicineNotebook: boolean;
@@ -177,6 +218,8 @@ interface AnalysisResult {
   isMedicineNotebookStraight: boolean;
   isHealthInsuranceCardObstructed: boolean;
   isMedicineNotebookObstructed: boolean;
+  canReadPersonalInfo: boolean;
+  personalInfo: PersonalInfo;
   analysis: string;
   suggestions: string;
 }
@@ -260,6 +303,19 @@ const medicineNotebookObstructionMessage = computed(() => {
   return !analysisResult.value.isMedicineNotebookObstructed
     ? '✅ おくすり手帳の内容が隠れていません'
     : '❌ おくすり手帳の内容が指や反射で隠れています'
+})
+
+const personalInfoMessage = computed(() => {
+  if (!analysisResult.value) return ''
+  return analysisResult.value.canReadPersonalInfo
+    ? '✅ 個人情報が読み取れます'
+    : '❌ 個人情報が読み取れません'
+})
+
+const hasPersonalInfo = computed(() => {
+  if (!analysisResult.value?.personalInfo) return false
+  const info = analysisResult.value.personalInfo
+  return !!(info.name || info.birthDate || info.gender)
 })
 
 // Watch for changes (for debugging)
@@ -369,6 +425,8 @@ const captureAndAnalyze = async (): Promise<void> => {
     console.log('isMedicineNotebookStraight value:', result.isMedicineNotebookStraight, typeof result.isMedicineNotebookStraight)
     console.log('isHealthInsuranceCardObstructed value:', result.isHealthInsuranceCardObstructed, typeof result.isHealthInsuranceCardObstructed)
     console.log('isMedicineNotebookObstructed value:', result.isMedicineNotebookObstructed, typeof result.isMedicineNotebookObstructed)
+    console.log('canReadPersonalInfo value:', result.canReadPersonalInfo, typeof result.canReadPersonalInfo)
+    console.log('personalInfo value:', result.personalInfo)
 
     // Force reactivity by creating a completely new object
     analysisResult.value = {
@@ -379,6 +437,12 @@ const captureAndAnalyze = async (): Promise<void> => {
       isMedicineNotebookStraight: Boolean(result.isMedicineNotebookStraight),
       isHealthInsuranceCardObstructed: Boolean(result.isHealthInsuranceCardObstructed),
       isMedicineNotebookObstructed: Boolean(result.isMedicineNotebookObstructed),
+      canReadPersonalInfo: Boolean(result.canReadPersonalInfo),
+      personalInfo: {
+        birthDate: String(result.personalInfo?.birthDate || ''),
+        name: String(result.personalInfo?.name || ''),
+        gender: String(result.personalInfo?.gender || '')
+      },
       analysis: String(result.analysis || ''),
       suggestions: String(result.suggestions || '')
     }
@@ -620,6 +684,42 @@ h2 {
   background: #f5f5f5;
   border-radius: 8px;
   border: 1px solid #ddd;
+}
+
+/* Personal Information Styles */
+.personal-info-details {
+  margin-top: 15px;
+  padding: 15px;
+  background: #fff3cd;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+}
+
+.personal-info-details h3 {
+  margin-bottom: 10px;
+  color: #856404;
+  font-size: 1.1em;
+}
+
+.personal-info-item {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.info-label {
+  font-weight: bold;
+  color: #856404;
+  min-width: 80px;
+  margin-right: 10px;
+}
+
+.info-value {
+  color: #333;
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ffc107;
 }
 
 @media (max-width: 768px) {

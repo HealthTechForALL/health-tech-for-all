@@ -153,6 +153,7 @@ app.post('/api/analyze-image', async (req, res) => {
 5. おくすり手帳が真っ直ぐ撮影されているか（文字が傾いていないか）
 6. 健康保険証の内容が指や手の反射・影で隠れているかどうか
 7. おくすり手帳の内容が指や手の反射・影で隠れているかどうか
+8. 健康保険証の場合、生年月日・氏名・性別が読み取れるかどうか
 
 必ずJSONフォーマットで以下のように返してください：
 {
@@ -163,6 +164,12 @@ app.post('/api/analyze-image', async (req, res) => {
   "isMedicineNotebookStraight": boolean,
   "isHealthInsuranceCardObstructed": boolean,
   "isMedicineNotebookObstructed": boolean,
+  "canReadPersonalInfo": boolean,
+  "personalInfo": {
+    "birthDate": "読み取れた生年月日（読み取れない場合は空文字）",
+    "name": "読み取れた氏名（読み取れない場合は空文字）",
+    "gender": "読み取れた性別（読み取れない場合は空文字）"
+  },
   "analysis": "詳細な分析結果",
   "suggestions": "改善点があれば提案"
 }
@@ -175,6 +182,10 @@ app.post('/api/analyze-image', async (req, res) => {
 - isMedicineNotebookStraight: おくすり手帳の文字や枠線が水平に撮影されている場合true、傾いている場合false（おくすり手帳でない場合はfalse）
 - isHealthInsuranceCardObstructed: 健康保険証の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（健康保険証でない場合はfalse）
 - isMedicineNotebookObstructed: おくすり手帳の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（おくすり手帳でない場合はfalse）
+- canReadPersonalInfo: 健康保険証で生年月日・氏名・性別が明確に読み取れる場合true、読み取れない場合false（健康保険証でない場合はfalse）
+- personalInfo: 健康保険証から読み取った個人情報（読み取れない場合は空文字）
+
+注意：個人情報は正確に読み取れる場合のみ記録し、不明瞭な場合は空文字にしてください。
 
 また "analysis" の内容をしっかり反芻し、健康保険証やおくすり手帳ではありません。という結果の場合もしっかり isHealthInsuranceCard や isMedicineNotebook の値をfalseにしてください。
 
@@ -227,6 +238,12 @@ app.post('/api/analyze-image', async (req, res) => {
         isMedicineNotebookStraight: parsedResult.isMedicineNotebookStraight === true,
         isHealthInsuranceCardObstructed: parsedResult.isHealthInsuranceCardObstructed === true,
         isMedicineNotebookObstructed: parsedResult.isMedicineNotebookObstructed === true,
+        canReadPersonalInfo: parsedResult.canReadPersonalInfo === true,
+        personalInfo: {
+          birthDate: parsedResult.personalInfo?.birthDate || '',
+          name: parsedResult.personalInfo?.name || '',
+          gender: parsedResult.personalInfo?.gender || ''
+        },
         analysis: parsedResult.analysis || '',
         suggestions: parsedResult.suggestions || "画像をより鮮明に撮影してください"
       };
@@ -249,6 +266,12 @@ app.post('/api/analyze-image', async (req, res) => {
         isMedicineNotebookStraight: isNotDetected ? false : (isMedicineNotebook && isStraight),
         isHealthInsuranceCardObstructed: isNotDetected ? false : (isHealthInsuranceCard && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
         isMedicineNotebookObstructed: isNotDetected ? false : (isMedicineNotebook && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
+        canReadPersonalInfo: isNotDetected ? false : (isHealthInsuranceCard && (text.includes('氏名') || text.includes('生年月日') || text.includes('性別'))),
+        personalInfo: {
+          birthDate: '',
+          name: '',
+          gender: ''
+        },
         analysis: text,
         suggestions: "画像をより鮮明に撮影してください"
       };
