@@ -194,6 +194,51 @@
         <!-- 音声会話機能 -->
         <div class="voice-chat-section">
           <h2>🗣️ 音声会話機能</h2>
+          <div class="voice-controls">
+            <button
+              @click="toggleVoiceChat"
+              :disabled="!isWebSpeechSupported"
+              class="btn voice-btn"
+              :class="{ 'recording': voiceStatus.isRecording }"
+            >
+              {{ voiceStatus.isRecording ? '会話終了' : '話しかける' }}
+            </button>
+            <div
+              v-if="!isWebSpeechSupported"
+              class="error-message"
+            >
+              お使いのブラウザは音声認識をサポートしていません
+            </div>
+            <div
+              v-if="voiceStatus.error"
+              class="error-message"
+            >
+              {{ voiceStatus.error }}
+            </div>
+          </div>
+          <div class="voice-display">
+            <div class="transcript-area">
+              <h3>📝 認識中の音声</h3>
+              <div
+                class="transcript-content"
+                :class="{ 'listening': voiceStatus.isRecording }"
+              >
+                <div v-if="voiceStatus.isRecording && !currentTranscript" class="listening-indicator">
+                  🎤 話しかけてください...
+                </div>
+                <div v-if="currentTranscript" class="current-transcript">
+                  {{ currentTranscript }}
+                </div>
+                <div v-if="!voiceStatus.isRecording && !finalTranscript" class="waiting-voice">
+                  音声認識待機中
+                </div>
+                <div v-if="finalTranscript" class="final-transcript">
+                  <strong>最終認識結果:</strong><br>
+                  {{ finalTranscript }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -202,6 +247,55 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+
+// Web Speech API type definitions
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  readonly results: SpeechRecognitionResultList;
+  readonly resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  readonly isFinal: boolean;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+  readonly confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string;
+  readonly message: string;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
 
 // Type definitions
 interface PersonalInfo {
@@ -230,6 +324,11 @@ interface CameraStatus {
   error: string | null;
 }
 
+interface VoiceStatus {
+  isRecording: boolean;
+  error: string | null;
+}
+
 // Refs
 const videoRef = ref<HTMLVideoElement>()
 const canvasRef = ref<HTMLCanvasElement>()
@@ -241,14 +340,29 @@ const cameraStatus = ref<CameraStatus>({
   error: null
 })
 
+const voiceStatus = ref<VoiceStatus>({
+  isRecording: false,
+  error: null
+})
+
 const analysisResult = ref<AnalysisResult | null>(null)
 const analysisTimestamp = ref<number>(0)
+
+// Voice recognition related refs
+const currentTranscript = ref<string>('')
+const finalTranscript = ref<string>('')
+const recognition = ref<SpeechRecognition | null>(null)
 
 // Computed
 const hasResult = computed(() => {
   const result = analysisResult.value !== null
   console.log('hasResult computed:', result, analysisResult.value)
   return result
+})
+
+// Web Speech API support check
+const isWebSpeechSupported = computed(() => {
+  return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
 })
 
 // Key to force re-render when analysis result changes
@@ -482,6 +596,87 @@ const getStatusClass = (isPositive: boolean): string => {
   return isPositive ? 'positive' : 'negative'
 }
 
+// Voice Recognition Methods
+const initSpeechRecognition = (): void => {
+  if (!isWebSpeechSupported.value) return
+
+  const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition
+  recognition.value = new SpeechRecognitionClass()
+
+  if (recognition.value) {
+    recognition.value.continuous = true
+    recognition.value.interimResults = true
+    recognition.value.lang = 'ja-JP'
+
+    recognition.value.onstart = () => {
+      console.log('音声認識開始')
+      voiceStatus.value.isRecording = true
+      voiceStatus.value.error = null
+      currentTranscript.value = ''
+    }
+
+    recognition.value.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = ''
+      let final = ''
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (result.isFinal) {
+          final += result[0].transcript
+        } else {
+          interim += result[0].transcript
+        }
+      }
+
+      currentTranscript.value = interim
+      if (final) {
+        finalTranscript.value = final
+        console.log('最終認識結果:', final)
+      }
+    }
+
+    recognition.value.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('音声認識エラー:', event.error)
+      voiceStatus.value.error = `音声認識エラー: ${event.error}`
+      voiceStatus.value.isRecording = false
+    }
+
+    recognition.value.onend = () => {
+      console.log('音声認識終了')
+      voiceStatus.value.isRecording = false
+    }
+  }
+}
+
+const startVoiceRecognition = (): void => {
+  if (!recognition.value) {
+    initSpeechRecognition()
+  }
+
+  if (recognition.value) {
+    try {
+      recognition.value.start()
+    } catch (error) {
+      console.error('音声認識開始エラー:', error)
+      voiceStatus.value.error = '音声認識を開始できませんでした'
+    }
+  }
+}
+
+const stopVoiceRecognition = (): void => {
+  if (recognition.value) {
+    recognition.value.stop()
+  }
+}
+
+const toggleVoiceChat = (): void => {
+  if (voiceStatus.value.isRecording) {
+    stopVoiceRecognition()
+  } else {
+    startVoiceRecognition()
+  }
+}
+
 // Cleanup on unmount
 onMounted(() => {
   return () => {
@@ -525,8 +720,24 @@ h1 {
 .main-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 30px;
   align-items: start;
+}
+
+.camera-section {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.results-section {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.voice-chat-section {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 /* Camera Section Styles */
@@ -722,10 +933,149 @@ h2 {
   border: 1px solid #ffc107;
 }
 
+/* Voice Chat Section Styles */
+.voice-chat-section {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.voice-controls {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.voice-btn {
+  background: linear-gradient(45deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.voice-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.voice-btn.recording {
+  background: linear-gradient(45deg, #f44336, #d32f2f);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+  }
+}
+
+.voice-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  animation: none;
+}
+
+.voice-display {
+  margin-top: 20px;
+}
+
+.transcript-area {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  border-left: 5px solid #4CAF50;
+}
+
+.transcript-area h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.1em;
+}
+
+.transcript-content {
+  min-height: 100px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  transition: border-color 0.3s ease;
+}
+
+.transcript-content.listening {
+  border-color: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.listening-indicator {
+  color: #4CAF50;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.5; }
+}
+
+.current-transcript {
+  color: #666;
+  font-style: italic;
+  line-height: 1.6;
+  min-height: 20px;
+}
+
+.final-transcript {
+  color: #333;
+  font-weight: bold;
+  line-height: 1.6;
+  padding: 10px;
+  background: #e8f5e8;
+  border-radius: 6px;
+  border-left: 4px solid #4CAF50;
+}
+
+.waiting-voice {
+  color: #999;
+  text-align: center;
+  padding: 30px;
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .main-content {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
     gap: 20px;
+  }
+
+  .camera-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .results-section {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .voice-chat-section {
+    grid-column: 1;
+    grid-row: 3;
   }
 
   h1 {
