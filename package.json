@@ -1,0 +1,48 @@
+{
+  "name": "try-live-api",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "tsc",
+    "build:frontend": "cd vue && npx vue-tsc --noEmit && npx vite build",
+    "start": "node dist/server.js",
+    "dev": "npm run build:backend && concurrently \"tsc -w\" \"nodemon dist/server.js\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run build:backend && concurrently \"tsc -w\" \"nodemon dist/server.js\"",
+    "dev:frontend": "cd vue && npx vite",
+    "dev:full": "npm run build:frontend && npm run dev",
+    "dev:static": "npm run build && npm start",
+    "serve": "ts-node src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "gemini",
+    "live-api",
+    "camera",
+    "health-insurance",
+    "medicine-notebook"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Real-time camera analysis for health insurance cards and medicine notebooks using Google Gemini Live API",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^24.1.0",
+    "@types/vue": "^2.0.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.6",
+    "vue": "^3.5.18",
+    "vue-tsc": "^3.0.5"
+  }
+}

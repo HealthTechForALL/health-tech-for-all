@@ -1,0 +1,100 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build output
+dist/
+dist-ssr/
+dist-frontend/
+build/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# Vue specific
+.vue-tsc/
+*.vue.js
+*.vue.d.ts
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# IDE files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+
+# Temporary files
+tmp/
+temp/
+
+# Google API credentials (security)
+**/credentials.json
+**/service-account-key.json
+**/google-credentials.json
+
+# AI/ML model cache
+.cache/
+.model-cache/
+
+# Hot reload cache
+.hot/
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettier-cache
+
+# Package manager lock files (if using different package managers)
+# yarn.lock
+# pnpm-lock.yaml
+
+# Local database files
+*.db
+*.sqlite
+
+# User uploads (if any)
+uploads/
+public/uploads/

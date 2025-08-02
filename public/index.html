@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康保険証・おくすり手帳 リアルタイム判定</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .camera-section, .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .camera-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .analysis-result {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            flex-wrap: wrap;
+        }
+
+        .debug-value {
+            font-size: 0.8em;
+            font-weight: normal;
+            color: #666;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 10px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .status-indicator.positive {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-indicator.negative {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-indicator.neutral {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .analysis-text {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        .suggestions {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            40% { color: #666; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            60% { text-shadow: .25em 0 0 #666, .5em 0 0 rgba(0,0,0,0); }
+            80%, 100% { text-shadow: .25em 0 0 #666, .5em 0 0 #666; }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .camera-section, .results-section {
+                padding: 20px;
+            }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 健康保険証・おくすり手帳 リアルタイム判定システム</h1>
+
+        <div class="main-content">
+            <div class="camera-section">
+                <h2>📷 カメラ</h2>
+                <div class="camera-container">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                <div class="camera-controls">
+                    <button id="startCamera">カメラ開始</button>
+                    <button id="stopCamera" disabled>カメラ停止</button>
+                    <button id="captureImage">撮影・判定</button>
+                </div>
+                <div id="cameraError" class="error-message" style="display: none;"></div>
+            </div>
+
+            <div class="results-section">
+                <h2>🔍 判定結果</h2>
+                <div id="analysisResults">
+                    <div class="loading" style="display: none;">分析中</div>
+                    <div class="analysis-result" style="display: none;">
+                        <div id="healthInsuranceStatus" class="status-indicator neutral">
+                            <span class="status-icon">🏥</span>
+                            <span>健康保険証の判定を待機中...</span>
+                            <span id="healthInsuranceValue" class="debug-value">isHealthInsuranceCard: null</span>
+                        </div>
+                        <div id="medicineNotebookStatus" class="status-indicator neutral">
+                            <span class="status-icon">💊</span>
+                            <span>おくすり手帳の判定を待機中...</span>
+                            <span id="medicineNotebookValue" class="debug-value">isMedicineNotebook: null</span>
+                        </div>
+                        <div id="contentVisibilityStatus" class="status-indicator neutral">
+                            <span class="status-icon">👁️</span>
+                            <span>内容の可視性を判定中...</span>
+                            <span id="contentVisibilityValue" class="debug-value">isContentVisible: null</span>
+                        </div>
+                        <div id="analysisText" class="analysis-text" style="display: none;"></div>
+                        <div id="suggestions" class="suggestions" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let video, canvas, ctx;
+        let isAnalyzing = false;
+        let analysisInterval;
+        let autoAnalysisInterval;
+
+        // DOM elements
+        const startCameraBtn = document.getElementById('startCamera');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const captureImageBtn = document.getElementById('captureImage');
+        const cameraError = document.getElementById('cameraError');
+        const analysisResults = document.getElementById('analysisResults');
+        const loadingDiv = analysisResults.querySelector('.loading');
+        const resultDiv = analysisResults.querySelector('.analysis-result');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            // Event listeners
+            startCameraBtn.addEventListener('click', startCamera);
+            stopCameraBtn.addEventListener('click', stopCamera);
+            captureImageBtn.addEventListener('click', captureAndAnalyze);
+
+            // Show initial waiting state
+            showWaitingState();
+        });
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'environment' // Use rear camera if available
+                    }
+                });
+
+                video.srcObject = stream;
+
+                // Update button states
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = false;
+                captureImageBtn.disabled = false;
+
+                // Hide error message
+                cameraError.style.display = 'none';
+
+                // Don't start auto analysis - only manual button press
+                console.log('Camera started successfully');
+
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                showError('カメラにアクセスできませんでした: ' + error.message);
+            }
+        }
+
+        function stopCamera() {
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
+            // Update button states
+            startCameraBtn.disabled = false;
+            stopCameraBtn.disabled = true;
+            captureImageBtn.disabled = true;
+            isAnalyzing = false;
+
+            // Reset to waiting state
+            showWaitingState();
+
+            console.log('Camera stopped');
+        }
+
+        function startAutoAnalysis() {
+            // Start automatic analysis every 500ms
+            autoAnalysisInterval = setInterval(() => {
+                if (!isAnalyzing && video.videoWidth && video.videoHeight) {
+                    captureAndAnalyze();
+                }
+            }, 500);
+        }
+
+        function stopAutoAnalysis() {
+            if (autoAnalysisInterval) {
+                clearInterval(autoAnalysisInterval);
+                autoAnalysisInterval = null;
+            }
+        }
+
+        function showWaitingState() {
+            // Show result container with waiting state
+            resultDiv.style.display = 'block';
+
+            // Set all indicators to waiting state
+            updateStatusIndicatorWaiting('healthInsuranceStatus', '🏥', '健康保険証の判定を待機中...');
+            updateStatusIndicatorWaiting('medicineNotebookStatus', '💊', 'おくすり手帳の判定を待機中...');
+            updateStatusIndicatorWaiting('contentVisibilityStatus', '👁️', '内容の可視性を判定待機中...');
+
+            // Hide analysis and suggestions
+            document.getElementById('analysisText').style.display = 'none';
+            document.getElementById('suggestions').style.display = 'none';
+        }
+
+        function updateStatusIndicatorWaiting(elementId, icon, message) {
+            const element = document.getElementById(elementId);
+            element.className = 'status-indicator neutral';
+
+            // Get the debug value ID
+            const debugValueId = elementId.replace('Status', 'Value');
+
+            // Update the element content with proper structure
+            element.innerHTML = `
+                <span class="status-icon">${icon}</span>
+                <span>${message}</span>
+                <span id="${debugValueId}" class="debug-value">待機中</span>
+            `;
+        }
+
+        function captureImage() {
+            if (!video.videoWidth || !video.videoHeight) {
+                showError('ビデオが準備できていません');
+                return null;
+            }
+
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get image data as base64
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        async function captureAndAnalyze() {
+            if (isAnalyzing) return;
+
+            const imageData = captureImage();
+            if (!imageData) return;
+
+            isAnalyzing = true;
+            // Don't show loading for auto analysis to avoid flickering
+            // showLoading(true);
+
+            try {
+                const response = await fetch('/api/analyze-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ imageData })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                displayAnalysisResult(result);
+
+            } catch (error) {
+                console.error('Error analyzing image:', error);
+                // Don't show error for auto analysis, just log it
+                if (!autoAnalysisInterval) {
+                    showError('画像分析中にエラーが発生しました: ' + error.message);
+                }
+            } finally {
+                isAnalyzing = false;
+                // showLoading(false);
+            }
+        }
+
+        function displayAnalysisResult(result) {
+            // Show result container
+            resultDiv.style.display = 'block';
+
+            // Update health insurance status
+            updateStatusIndicator('healthInsuranceStatus',
+                result.isHealthInsuranceCard,
+                '🏥',
+                result.isHealthInsuranceCard ? '✅ 健康保険証を検出しました' : '❌ 健康保険証は検出されませんでした'
+            );
+            document.getElementById('healthInsuranceValue').textContent = `isHealthInsuranceCard: ${result.isHealthInsuranceCard}`;
+
+            // Update medicine notebook status
+            updateStatusIndicator('medicineNotebookStatus',
+                result.isMedicineNotebook,
+                '💊',
+                result.isMedicineNotebook ? '✅ おくすり手帳を検出しました' : '❌ おくすり手帳は検出されませんでした'
+            );
+            document.getElementById('medicineNotebookValue').textContent = `isMedicineNotebook: ${result.isMedicineNotebook}`;
+
+            // Update content visibility status
+            updateStatusIndicator('contentVisibilityStatus',
+                result.isContentVisible,
+                '👁️',
+                result.isContentVisible ? '✅ 内容がしっかり見えています' : '❌ 内容が見えにくい状態です'
+            );
+            document.getElementById('contentVisibilityValue').textContent = `isContentVisible: ${result.isContentVisible}`;
+
+            // Show analysis text
+            if (result.analysis) {
+                const analysisText = document.getElementById('analysisText');
+                analysisText.textContent = result.analysis;
+                analysisText.style.display = 'block';
+            }
+
+            // Show suggestions
+            if (result.suggestions) {
+                const suggestions = document.getElementById('suggestions');
+                suggestions.innerHTML = '<strong>改善提案:</strong><br>' + result.suggestions;
+                suggestions.style.display = 'block';
+            }
+
+            // Debug: Log the actual result values
+            console.log('Analysis Result:', {
+                isHealthInsuranceCard: result.isHealthInsuranceCard,
+                isMedicineNotebook: result.isMedicineNotebook,
+                isContentVisible: result.isContentVisible
+            });
+        }
+
+        function updateStatusIndicator(elementId, isPositive, icon, message) {
+            const element = document.getElementById(elementId);
+            element.className = 'status-indicator ' + (isPositive ? 'positive' : 'negative');
+
+            // Get the debug value ID
+            const debugValueId = elementId.replace('Status', 'Value');
+
+            // Update the element content with proper structure
+            element.innerHTML = `
+                <span class="status-icon">${icon}</span>
+                <span>${message}</span>
+                <span id="${debugValueId}" class="debug-value">更新中...</span>
+            `;
+        }
+
+        function showLoading(show) {
+            loadingDiv.style.display = show ? 'block' : 'none';
+            if (show) {
+                resultDiv.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            cameraError.textContent = message;
+            cameraError.style.display = 'block';
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoAnalysis();
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
