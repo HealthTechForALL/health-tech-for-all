@@ -202,7 +202,7 @@
           <div class="voice-controls">
             <button
               @click="toggleVoiceChat"
-              :disabled="!isWebSpeechSupported"
+              :disabled="!isWebSpeechSupported || voiceStatus.isProcessing"
               class="btn voice-btn"
               :class="{ 'recording': voiceStatus.isRecording }"
             >
@@ -229,7 +229,8 @@
                 :class="{ 'listening': voiceStatus.isRecording }"
               >
                 <div v-if="voiceStatus.isRecording && !currentTranscript" class="listening-indicator">
-                  🎤 症状を聞かせてください...
+                  🎤 症状を聞かせてください...<br>
+                  <small>（「以上です」や「おわります」と発言すると終了できます）</small>
                 </div>
                 <div v-if="currentTranscript" class="current-transcript">
                   {{ currentTranscript }}
@@ -258,7 +259,7 @@
                 </p>
                 <button
                   @click="startVoiceRecognition"
-                  :disabled="voiceStatus.isRecording"
+                  :disabled="voiceStatus.isRecording || voiceStatus.isProcessing"
                   class="btn retry-btn"
                 >
                   症状を聞かせ直す
@@ -353,6 +354,7 @@ interface CameraStatus {
 
 interface VoiceStatus {
   isRecording: boolean;
+  isProcessing: boolean;
   error: string | null;
 }
 
@@ -369,6 +371,7 @@ const cameraStatus = ref<CameraStatus>({
 
 const voiceStatus = ref<VoiceStatus>({
   isRecording: false,
+  isProcessing: false,
   error: null
 })
 
@@ -651,6 +654,19 @@ const speakMessage = (text: string): Promise<void> => {
   })
 }
 
+const checkForStopKeywords = (text: string): void => {
+  const stopKeywords = ['以上です', 'おわります', 'ありがとう', '終わり']
+  const lowerText = text.toLowerCase()
+
+  for (const keyword of stopKeywords) {
+    if (lowerText.includes(keyword)) {
+      console.log(`終了キーワード "${keyword}" を検出しました`)
+      stopVoiceRecognition()
+      return
+    }
+  }
+}
+
 const initSpeechRecognition = (): void => {
   if (!isWebSpeechSupported.value) return
 
@@ -688,6 +704,14 @@ const initSpeechRecognition = (): void => {
         allRecognizedText.value += final
         finalTranscript.value = final
         console.log('最終認識結果:', allRecognizedText.value)
+
+        // 終了キーワードをチェック
+        checkForStopKeywords(final)
+      }
+
+      // リアルタイムでも終了キーワードをチェック
+      if (interim) {
+        checkForStopKeywords(interim)
       }
     }
 
@@ -705,6 +729,12 @@ const initSpeechRecognition = (): void => {
 }
 
 const startVoiceRecognition = async (): Promise<void> => {
+  if (voiceStatus.value.isProcessing || voiceStatus.value.isRecording) {
+    return // 既に処理中または録音中の場合は何もしない
+  }
+
+  voiceStatus.value.isProcessing = true
+
   if (!recognition.value) {
     initSpeechRecognition()
   }
@@ -714,16 +744,20 @@ const startVoiceRecognition = async (): Promise<void> => {
   currentTranscript.value = ''
   allRecognizedText.value = ''  // 蓄積された結果もクリア
 
-  // 音声案内を再生
-  await speakMessage('症状を教えてください！')
+  try {
+    // 音声案内を再生
+    await speakMessage('症状を教えてください！')
 
-  if (recognition.value) {
-    try {
-      recognition.value.start()
-    } catch (error) {
-      console.error('音声認識開始エラー:', error)
-      voiceStatus.value.error = '音声認識を開始できませんでした'
+    if (recognition.value) {
+      try {
+        recognition.value.start()
+      } catch (error) {
+        console.error('音声認識開始エラー:', error)
+        voiceStatus.value.error = '音声認識を開始できませんでした'
+      }
     }
+  } finally {
+    voiceStatus.value.isProcessing = false
   }
 }
 
@@ -734,6 +768,10 @@ const stopVoiceRecognition = (): void => {
 }
 
 const toggleVoiceChat = async (): Promise<void> => {
+  if (voiceStatus.value.isProcessing) {
+    return // 処理中の場合は何もしない
+  }
+
   if (voiceStatus.value.isRecording) {
     stopVoiceRecognition()
   } else {
@@ -1120,6 +1158,14 @@ h2 {
   text-align: center;
   padding: 20px;
   animation: blink 1.5s infinite;
+}
+
+.listening-indicator small {
+  color: #666;
+  font-size: 0.85em;
+  font-weight: normal;
+  margin-top: 5px;
+  display: block;
 }
 
 @keyframes blink {
