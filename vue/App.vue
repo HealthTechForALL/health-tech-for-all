@@ -724,6 +724,7 @@ const checkForStopKeywords = async (text: string): Promise<void> => {
 
       // 症状をバックエンドに送信
       if (allRecognizedText.value.trim()) {
+        await speakMessage('お聞かせいただきありがとうございます。')
         await analyzeSymptomsWithBackend(allRecognizedText.value)
       }
 
@@ -793,13 +794,12 @@ const initSpeechRecognition = (): void => {
         finalTranscript.value = final
         console.log('最終認識結果:', allRecognizedText.value)
 
-        // 終了キーワードをチェック
+        // 終了キーワードをチェック（最終結果のみ）
         checkForStopKeywords(final)
       }
 
-      // リアルタイムでも終了キーワードとリセットキーワードをチェック
+      // リアルタイムではリセットキーワードのみチェック
       if (interim) {
-        checkForStopKeywords(interim)
         checkForResetKeywords(interim)
       }
     }
