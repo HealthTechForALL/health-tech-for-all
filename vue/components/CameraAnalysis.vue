@@ -598,27 +598,46 @@ const checkAndCompleteTask = (taskId: string, result: AnalysisResult): void => {
                 '条件を満たすように撮影し直してください。'
     }
   } else if (taskId === 'address_verification') {
-    // 住所確認書類の場合：健康保険証の判定を使用
-    shouldComplete = result.isHealthInsuranceCard &&
-                    result.isContentVisible &&
-                    result.isHealthInsuranceCardStraight &&
-                    !result.isHealthInsuranceCardObstructed
+    // 住所確認書類の場合：住所書類または健康保険証の判定を使用
+    const hasAddressDocument = result.isAddressDocument || result.isHealthInsuranceCard
+
+    if (result.isAddressDocument) {
+      // 住所書類（運転免許証、郵便物など）の場合は内容が見えればOK
+      shouldComplete = result.isContentVisible
+    } else if (result.isHealthInsuranceCard) {
+      // 健康保険証の場合は従来の条件を適用
+      shouldComplete = result.isContentVisible &&
+                      result.isHealthInsuranceCardStraight &&
+                      !result.isHealthInsuranceCardObstructed
+    } else {
+      shouldComplete = false
+    }
+
     if (shouldComplete) {
       message = '✅ 住所確認書類の確認が完了しました！'
     } else {
       message = '❌ 住所確認書類をもう一度撮影してください。\n' +
-                (result.isHealthInsuranceCard ? '' : '・書類が検出されませんでした\n') +
+                (hasAddressDocument ? '' : '・住所がわかる書類が検出されませんでした\n') +
                 (result.isContentVisible ? '' : '・内容が見えにくい状態です\n') +
-                (result.isHealthInsuranceCardStraight ? '' : '・書類が傾いています\n') +
-                (result.isHealthInsuranceCardObstructed ? '・書類が指や反射で隠れています\n' : '') +
+                (!result.isAddressDocument && result.isHealthInsuranceCard && !result.isHealthInsuranceCardStraight ? '・書類が傾いています\n' : '') +
+                (!result.isAddressDocument && result.isHealthInsuranceCard && result.isHealthInsuranceCardObstructed ? '・書類が指や反射で隠れています\n' : '') +
                 '条件を満たすように撮影し直してください。'
     }
   }
 
-  console.log('Task completion check:', { taskId, shouldComplete, message })
+  console.log('Task completion check:', {
+    taskId,
+    shouldComplete,
+    message,
+    isAddressDocument: result.isAddressDocument,
+    isHealthInsuranceCard: result.isHealthInsuranceCard,
+    isContentVisible: result.isContentVisible
+  })
 
   if (shouldComplete) {
     store.markTaskCompleted(taskId)
+    // Save form data with protection based on task type
+    store.saveFormDataToLocalStorage(taskId)
     // 成功時のみactiveTaskIdをリセット
     activeTaskId.value = null
     alert(message)

@@ -233,7 +233,7 @@ const stopAvatarSwitching = () => {
 }
 
 // Auto next step timer
-let autoNextTimer: number | null = null
+let autoNextTimer: ReturnType<typeof setTimeout> | null = null
 
 const startAutoNextTimer = () => {
   if (autoNextTimer) {
@@ -475,7 +475,7 @@ const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> =
     store.setSymptomsAnalysisResult(result)
 
     // Save FormData to localStorage after receiving response
-    store.saveFormDataToLocalStorage()
+    store.saveFormDataToLocalStorage('symptoms_analysis')
 
   } catch (error) {
     console.error('Error analyzing symptoms:', error)

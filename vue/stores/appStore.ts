@@ -140,7 +140,7 @@ export interface AppStore {
   resetTasks: () => void;
 
   // LocalStorage Methods
-  saveFormDataToLocalStorage: () => void;
+  saveFormDataToLocalStorage: (activeTaskId?: string) => void;
   loadFormDataFromLocalStorage: () => FormData | null;
   clearFormDataFromLocalStorage: () => void;
 }
@@ -343,33 +343,108 @@ export function createAppStore(): AppStore {
     initializeTasks()
   }
 
-  // LocalStorage Methods
-  const saveFormDataToLocalStorage = () => {
+  // LocalStorage Methods with data protection
+  const saveFormDataToLocalStorage = (activeTaskId?: string) => {
     try {
+      // Load existing FormData from localStorage to preserve existing data
+      const existingFormData = loadFormDataFromLocalStorage()
+
       // Create FormData object with current state values
       const currentFormData: FormData = {
-        symptoms_categories: symptomsAnalysisResult.value?.matched_categories || [],
-        symptoms: allRecognizedText.value || '',
-        profile_name_first_kana: patientInfo.value.profile_name_first_kana || '',
-        profile_name_last_kana: patientInfo.value.profile_name_last_kana || '',
-        profile_gender: analysisResult.value?.profile_gender || '',
-        profile_birthday_year: analysisResult.value?.profile_birthday_year || 0,
-        profile_birthday_month: analysisResult.value?.profile_birthday_month || 0,
-        profile_birthday_day: analysisResult.value?.profile_birthday_day || 0,
-        profile_phone: patientInfo.value.profile_phone || '',
-        profile_location_zip: analysisResult.value?.profile_location_zip || '',
-        profile_location_prefecture: analysisResult.value?.profile_location_prefecture || '',
-        profile_location_municipality: analysisResult.value?.profile_location_municipality || '',
-        profile_location_town: analysisResult.value?.profile_location_town || '',
-        profile_location_house_number: analysisResult.value?.profile_location_house_number || '',
-        profile_location_building_and_room_number: analysisResult.value?.profile_location_building_and_room_number || '',
-        base64_image_insurance_card: '',
-        base64_image_medication_notebook: '',
-        base64_image_credentials_information: ''
+        symptoms_categories: symptomsAnalysisResult.value?.matched_categories || existingFormData?.symptoms_categories || [],
+        symptoms: allRecognizedText.value || existingFormData?.symptoms || '',
+        // Protect name and phone data from being overwritten by camera analysis
+        profile_name_first_kana: existingFormData?.profile_name_first_kana || patientInfo.value.profile_name_first_kana || '',
+        profile_name_last_kana: existingFormData?.profile_name_last_kana || patientInfo.value.profile_name_last_kana || '',
+        profile_phone: existingFormData?.profile_phone || patientInfo.value.profile_phone || '',
+
+        // Handle personal info based on task type
+        profile_gender: (() => {
+          // For address verification task, don't update gender
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_gender || ''
+          }
+          return analysisResult.value?.profile_gender || existingFormData?.profile_gender || ''
+        })(),
+
+        profile_birthday_year: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_year || 0
+          }
+          return analysisResult.value?.profile_birthday_year || existingFormData?.profile_birthday_year || 0
+        })(),
+
+        profile_birthday_month: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_month || 0
+          }
+          return analysisResult.value?.profile_birthday_month || existingFormData?.profile_birthday_month || 0
+        })(),
+
+        profile_birthday_day: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_day || 0
+          }
+          return analysisResult.value?.profile_birthday_day || existingFormData?.profile_birthday_day || 0
+        })(),
+
+        // Address data - only update for address verification or when existing data is empty
+        profile_location_zip: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_zip) {
+            return analysisResult.value?.profile_location_zip || existingFormData?.profile_location_zip || ''
+          }
+          return existingFormData.profile_location_zip
+        })(),
+
+        profile_location_prefecture: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_prefecture) {
+            return analysisResult.value?.profile_location_prefecture || existingFormData?.profile_location_prefecture || ''
+          }
+          return existingFormData.profile_location_prefecture
+        })(),
+
+        profile_location_municipality: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_municipality) {
+            return analysisResult.value?.profile_location_municipality || existingFormData?.profile_location_municipality || ''
+          }
+          return existingFormData.profile_location_municipality
+        })(),
+
+        profile_location_town: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_town) {
+            return analysisResult.value?.profile_location_town || existingFormData?.profile_location_town || ''
+          }
+          return existingFormData.profile_location_town
+        })(),
+
+        profile_location_house_number: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_house_number) {
+            return analysisResult.value?.profile_location_house_number || existingFormData?.profile_location_house_number || ''
+          }
+          return existingFormData.profile_location_house_number
+        })(),
+
+        profile_location_building_and_room_number: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_building_and_room_number) {
+            return analysisResult.value?.profile_location_building_and_room_number || existingFormData?.profile_location_building_and_room_number || ''
+          }
+          return existingFormData.profile_location_building_and_room_number
+        })(),
+
+        base64_image_insurance_card: existingFormData?.base64_image_insurance_card || '',
+        base64_image_medication_notebook: existingFormData?.base64_image_medication_notebook || '',
+        base64_image_credentials_information: existingFormData?.base64_image_credentials_information || ''
       }
 
       localStorage.setItem('formData', JSON.stringify(currentFormData))
-      console.log('FormData saved to localStorage:', currentFormData)
+      console.log('FormData saved to localStorage with protection:', {
+        activeTaskId,
+        savedData: currentFormData,
+        protectedFields: ['profile_name_first_kana', 'profile_name_last_kana', 'profile_phone']
+      })
     } catch (error) {
       console.error('Error saving FormData to localStorage:', error)
     }
