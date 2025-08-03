@@ -322,11 +322,16 @@ app.post('/api/analyze-symptoms', async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
-以下の症状の説明を分析して、どの症状カテゴリに該当するか判定してください。
+以下の音声認識結果から、お名前（姓と名のひらがな）、電話番号、症状の情報を抽出し、症状をカテゴリ分析してください。
 
-症状の説明: "${symptoms}"
+音声認識結果: "${symptoms}"
 
-症状カテゴリ:
+【抽出対象の情報】
+1. お名前（姓・名をひらがなで）
+2. 電話番号（ハイフンなしの数字11桁）
+3. 症状の内容
+
+【症状カテゴリ】
 - 発熱
 - 咳・喉の痛み
 - 花粉症
@@ -343,7 +348,7 @@ app.post('/api/analyze-symptoms', async (req, res) => {
 - 不眠・不安
 - その他症状
 
-また、以下の緊急症状に該当する場合は is_emergency を true にしてください：
+【緊急症状（is_emergency を true にする条件）】
 - 意識がない
 - ろれつが回らない
 - 今まで経験したことがない頭痛、腹痛
@@ -354,12 +359,18 @@ app.post('/api/analyze-symptoms', async (req, res) => {
 
 必ずJSONフォーマットで以下のように返してください：
 {
+  "profile_name_first_kana": "はなこ（名前の名の部分をひらがなで）",
+  "profile_name_last_kana": "やまだ（名前の姓の部分をひらがなで）",
+  "profile_phone": "09012345678（ハイフンなしの11桁数字）",
   "matched_categories": ["該当する症状カテゴリの配列"],
   "is_emergency": boolean,
   "emergency_reasons": ["緊急の場合、該当する緊急症状の配列"]
 }
 
 注意：
+- 名前が聞き取れない場合は空文字 "" を設定
+- 電話番号が聞き取れない場合は空文字 "" を設定
+- 名前は必ずひらがなで出力してください（例：「山田」→「やまだ」、「花子」→「はなこ」「ピカチュウ」→「ぴかちゅう」）
 - matched_categories は必ず上記の症状カテゴリから選んでください
 - 複数のカテゴリに該当する場合は配列に複数入れてください
 - 緊急症状に該当しない場合は is_emergency は false にしてください
@@ -393,6 +404,9 @@ app.post('/api/analyze-symptoms', async (req, res) => {
       const parsedResult = JSON.parse(cleanText);
 
       analysisResult = {
+        profile_name_first_kana: parsedResult.profile_name_first_kana || '',
+        profile_name_last_kana: parsedResult.profile_name_last_kana || '',
+        profile_phone: parsedResult.profile_phone || '',
         matched_categories: Array.isArray(parsedResult.matched_categories) ? parsedResult.matched_categories : [],
         is_emergency: parsedResult.is_emergency === true,
         emergency_reasons: Array.isArray(parsedResult.emergency_reasons) ? parsedResult.emergency_reasons : [],
@@ -459,6 +473,9 @@ app.post('/api/analyze-symptoms', async (req, res) => {
       }
 
       analysisResult = {
+        profile_name_first_kana: '',
+        profile_name_last_kana: '',
+        profile_phone: '',
         matched_categories: categories,
         is_emergency: isEmergency,
         emergency_reasons: emergencyReasons,

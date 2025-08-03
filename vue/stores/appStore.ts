@@ -34,10 +34,40 @@ export interface VoiceStatus {
 }
 
 export interface SymptomsAnalysisResult {
+  profile_name_first_kana: string;
+  profile_name_last_kana: string;
+  profile_phone: string;
   matched_categories: string[];
   is_emergency: boolean;
   emergency_reasons: string[];
   emergency_guidance: string | null;
+}
+
+export interface PatientInfo {
+  profile_name_first_kana: string;
+  profile_name_last_kana: string;
+  profile_phone: string;
+}
+
+export interface FormData {
+  symptoms_categories: string[];
+  symptoms: string;
+  profile_name_first_kana: string;
+  profile_name_last_kana: string;
+  profile_gender: string;
+  profile_birthday_year: number;
+  profile_birthday_month: number;
+  profile_birthday_day: number;
+  profile_phone: string;
+  profile_location_zip: string;
+  profile_location_prefecture: string;
+  profile_location_municipality: string;
+  profile_location_town: string;
+  profile_location_house_number: string;
+  profile_location_building_and_room_number: string;
+  base64_image_insurance_card: string;
+  base64_image_medication_notebook: string;
+  base64_image_credentials_information: string;
 }
 
 // Store interface
@@ -55,6 +85,12 @@ export interface AppStore {
   symptomsAnalysisResult: Ref<SymptomsAnalysisResult | null>;
   symptomsAnalysisTimestamp: Ref<number>;
 
+  // Patient Info State (reactive ref)
+  patientInfo: Ref<PatientInfo>;
+
+  // Form Data (reactive refs)
+  formData: Ref<FormData | null>;
+
   // Computed (computed refs)
   hasAnalysisResult: ComputedRef<boolean>;
   hasSymptomsResult: ComputedRef<boolean>;
@@ -70,6 +106,15 @@ export interface AppStore {
   setSymptomsAnalysisResult: (result: SymptomsAnalysisResult) => void;
   clearSymptomsResult: () => void;
   resetVoiceData: () => void;
+
+  // Patient Info Methods
+  updatePatientInfo: (info: Partial<PatientInfo>) => void;
+  clearPatientInfo: () => void;
+
+  // LocalStorage Methods
+  saveFormDataToLocalStorage: () => void;
+  loadFormDataFromLocalStorage: () => FormData | null;
+  clearFormDataFromLocalStorage: () => void;
 }
 
 // Store symbol for provide/inject
@@ -98,6 +143,15 @@ export function createAppStore(): AppStore {
   const allRecognizedText = ref<string>('')
   const symptomsAnalysisResult = ref<SymptomsAnalysisResult | null>(null)
   const symptomsAnalysisTimestamp = ref<number>(0)
+
+  // Patient Info State
+  const patientInfo = ref<PatientInfo>({
+    profile_name_first_kana: '',
+    profile_name_last_kana: '',
+    profile_phone: ''
+  })
+
+  const formData = ref<FormData | null>(null)
 
   // Computed values
   const hasAnalysisResult = computed(() => analysisResult.value !== null)
@@ -147,12 +201,22 @@ export function createAppStore(): AppStore {
 
   const setSymptomsAnalysisResult = (result: SymptomsAnalysisResult) => {
     symptomsAnalysisResult.value = {
+      profile_name_first_kana: result.profile_name_first_kana || '',
+      profile_name_last_kana: result.profile_name_last_kana || '',
+      profile_phone: result.profile_phone || '',
       matched_categories: Array.isArray(result.matched_categories) ? result.matched_categories : [],
       is_emergency: Boolean(result.is_emergency),
       emergency_reasons: Array.isArray(result.emergency_reasons) ? result.emergency_reasons : [],
       emergency_guidance: result.emergency_guidance || null
     }
     symptomsAnalysisTimestamp.value = Date.now()
+
+    // Update patient info state with the extracted information
+    updatePatientInfo({
+      profile_name_first_kana: result.profile_name_first_kana || '',
+      profile_name_last_kana: result.profile_name_last_kana || '',
+      profile_phone: result.profile_phone || ''
+    })
   }
 
   const clearSymptomsResult = () => {
@@ -165,6 +229,78 @@ export function createAppStore(): AppStore {
     finalTranscript.value = ''
     allRecognizedText.value = ''
     clearSymptomsResult()
+    clearPatientInfo()
+
+    // Clear FormData from localStorage when resetting voice data
+    clearFormDataFromLocalStorage()
+  }
+
+  // Patient Info Methods
+  const updatePatientInfo = (info: Partial<PatientInfo>) => {
+    patientInfo.value = { ...patientInfo.value, ...info }
+  }
+
+  const clearPatientInfo = () => {
+    patientInfo.value = {
+      profile_name_first_kana: '',
+      profile_name_last_kana: '',
+      profile_phone: ''
+    }
+  }
+
+  // LocalStorage Methods
+  const saveFormDataToLocalStorage = () => {
+    try {
+      // Create FormData object with current state values
+      const currentFormData: FormData = {
+        symptoms_categories: symptomsAnalysisResult.value?.matched_categories || [],
+        symptoms: allRecognizedText.value || '',
+        profile_name_first_kana: patientInfo.value.profile_name_first_kana || '',
+        profile_name_last_kana: patientInfo.value.profile_name_last_kana || '',
+        profile_gender: analysisResult.value?.personalInfo?.gender || '',
+        profile_birthday_year: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getFullYear() : 0,
+        profile_birthday_month: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getMonth() + 1 : 0,
+        profile_birthday_day: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getDate() : 0,
+        profile_phone: patientInfo.value.profile_phone || '',
+        profile_location_zip: '',
+        profile_location_prefecture: '',
+        profile_location_municipality: '',
+        profile_location_town: '',
+        profile_location_house_number: '',
+        profile_location_building_and_room_number: '',
+        base64_image_insurance_card: '',
+        base64_image_medication_notebook: '',
+        base64_image_credentials_information: ''
+      }
+
+      localStorage.setItem('formData', JSON.stringify(currentFormData))
+      console.log('FormData saved to localStorage:', currentFormData)
+    } catch (error) {
+      console.error('Error saving FormData to localStorage:', error)
+    }
+  }
+
+  const loadFormDataFromLocalStorage = (): FormData | null => {
+    try {
+      const stored = localStorage.getItem('formData')
+      if (stored) {
+        const parsedData = JSON.parse(stored) as FormData
+        console.log('FormData loaded from localStorage:', parsedData)
+        return parsedData
+      }
+    } catch (error) {
+      console.error('Error loading FormData from localStorage:', error)
+    }
+    return null
+  }
+
+  const clearFormDataFromLocalStorage = () => {
+    try {
+      localStorage.removeItem('formData')
+      console.log('FormData cleared from localStorage')
+    } catch (error) {
+      console.error('Error clearing FormData from localStorage:', error)
+    }
   }
 
   return {
@@ -178,6 +314,8 @@ export function createAppStore(): AppStore {
     allRecognizedText,
     symptomsAnalysisResult,
     symptomsAnalysisTimestamp,
+    patientInfo,
+    formData,
 
     // Computed
     hasAnalysisResult,
@@ -191,7 +329,16 @@ export function createAppStore(): AppStore {
     updateTranscript,
     setSymptomsAnalysisResult,
     clearSymptomsResult,
-    resetVoiceData
+    resetVoiceData,
+
+    // Patient Info Methods
+    updatePatientInfo,
+    clearPatientInfo,
+
+    // LocalStorage Methods
+    saveFormDataToLocalStorage,
+    loadFormDataFromLocalStorage,
+    clearFormDataFromLocalStorage
   }
 }
 
