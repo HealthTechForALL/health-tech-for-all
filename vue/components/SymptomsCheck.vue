@@ -388,6 +388,9 @@ const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> =
 
     store.setSymptomsAnalysisResult(result)
 
+    // Save FormData to localStorage after receiving response
+    store.saveFormDataToLocalStorage()
+
   } catch (error) {
     console.error('Error analyzing symptoms:', error)
 
@@ -425,6 +428,12 @@ const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> =
 
 onMounted(() => {
   initSpeechRecognition()
+
+  // Load existing FormData from localStorage
+  const existingFormData = store.loadFormDataFromLocalStorage()
+  if (existingFormData) {
+    console.log('Loaded existing FormData from localStorage:', existingFormData)
+  }
 })
 </script>
 
