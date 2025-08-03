@@ -1,145 +1,152 @@
 <template>
-  <div class="voice-chat-section">
-    <h2>🩺 症状チェックコーナー</h2>
-    <div class="voice-intro">
-      <p class="intro-message">はじめまして！「症状を聞かせる」ボタンを押した後、症状を教えてください！</p>
-      <br />
-      <p class="example-message">例）12/04頃から発熱。頭も少し痛い。</p>
+  <div class="left-panel">
+    <div class="avatar-container">
+      <img :src="currentAvatarSrc" alt="FastDoctor Avatar" class="avatar-image" />
     </div>
-    <div class="voice-controls">
-      <button
-        @click="startVoiceRecognition"
-        :disabled="!isWebSpeechSupported || store.voiceStatus.value.isProcessing || store.voiceStatus.value.isRecording"
-        class="btn voice-btn"
-      >
-        症状を聞かせる
-      </button>
-      <div
-        v-if="!isWebSpeechSupported"
-        class="error-message"
-      >
-        お使いのブラウザは音声認識をサポートしていません
+  </div>
+  <div class="right-panel">
+    <div class="voice-chat-section">
+      <h2>🩺 症状チェックコーナー</h2>
+      <div class="voice-intro">
+        <p class="intro-message">はじめまして！「症状を聞かせる」ボタンを押した後、症状を教えてください！</p>
+        <br />
+        <p class="example-message">例）12/04頃から発熱。頭も少し痛い。</p>
       </div>
-      <div
-        v-if="store.voiceStatus.value.error"
-        class="error-message"
-      >
-        {{ store.voiceStatus.value.error }}
-      </div>
-    </div>
-    <div class="voice-display">
-      <div class="transcript-area">
-        <h3>📝 お伺い内容</h3>
-        <div
-          class="transcript-content"
-          :class="{ 'listening': store.voiceStatus.value.isRecording }"
+      <div class="voice-controls">
+        <button
+          @click="startVoiceRecognition"
+          :disabled="!isWebSpeechSupported || store.voiceStatus.value.isProcessing || store.voiceStatus.value.isRecording"
+          class="btn voice-btn"
         >
-          <div v-if="store.voiceStatus.value.isRecording && !store.currentTranscript.value" class="listening-indicator">
-            🎤 症状を聞かせてください...<br>
-            <small>（「以上です」や「おわります」と発言すると終了できます）</small><br>
-            <small>（「やり直し」や「リセット」と発言すると文章がリセットされます）</small>
-          </div>
-          <div v-if="store.currentTranscript.value" class="current-transcript">
-            {{ store.currentTranscript.value }}
-          </div>
-          <div v-if="!store.voiceStatus.value.isRecording && !store.finalTranscript.value && !store.allRecognizedText.value" class="waiting-voice">
-            音声認識待機中
-          </div>
-          <div v-if="store.allRecognizedText.value" class="final-transcript">
-            <strong>最終認識結果:</strong><br>
-            {{ store.allRecognizedText.value }}
-          </div>
-          <div v-if="store.voiceStatus.value.isProcessing" class="processing-indicator">
-            🔍 症状を分析中...
-          </div>
+          症状を聞かせる
+        </button>
+        <div
+          v-if="!isWebSpeechSupported"
+          class="error-message"
+        >
+          お使いのブラウザは音声認識をサポートしていません
+        </div>
+        <div
+          v-if="store.voiceStatus.value.error"
+          class="error-message"
+        >
+          {{ store.voiceStatus.value.error }}
         </div>
       </div>
-    </div>
-
-    <!-- 症状分析結果表示 -->
-    <div
-      v-if="store.hasSymptomsResult.value"
-      class="symptoms-analysis-results"
-      :key="store.symptomsAnalysisTimestamp.value"
-    >
-      <h3>🩺 症状分析結果</h3>
-
-      <!-- お名前・電話番号表示 -->
-      <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana || store.patientInfo.value.profile_phone" class="patient-info">
-        <h4>👤 患者情報：</h4>
-        <div class="info-grid">
-          <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana" class="info-item">
-            <span class="info-label">お名前：</span>
-            <span class="info-value">
-              {{ store.patientInfo.value.profile_name_last_kana }}
-              {{ store.patientInfo.value.profile_name_first_kana }}
-              <span v-if="!store.patientInfo.value.profile_name_last_kana && !store.patientInfo.value.profile_name_first_kana" class="info-missing">（聞き取れませんでした）</span>
-            </span>
-          </div>
-          <div v-if="store.patientInfo.value.profile_phone" class="info-item">
-            <span class="info-label">電話番号：</span>
-            <span class="info-value">
-              {{ store.patientInfo.value.profile_phone }}
-              <span v-if="!store.patientInfo.value.profile_phone" class="info-missing">（聞き取れませんでした）</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 緊急度表示 -->
-      <div
-        :class="['emergency-indicator', store.symptomsAnalysisResult.value!.is_emergency ? 'emergency' : 'normal']"
-      >
-        <span class="emergency-icon">
-          {{ store.symptomsAnalysisResult.value!.is_emergency ? '🚨' : '✅' }}
-        </span>
-        <span class="emergency-text">
-          {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : '通常の症状です' }}
-        </span>
-      </div>
-
-      <!-- 緊急理由 -->
-      <div v-if="store.symptomsAnalysisResult.value!.is_emergency && store.symptomsAnalysisResult.value!.emergency_reasons.length > 0" class="emergency-reasons">
-        <h4>⚠️ 緊急対応が必要な理由：</h4>
-        <ul>
-          <li v-for="reason in store.symptomsAnalysisResult.value!.emergency_reasons" :key="reason">
-            {{ reason }}
-          </li>
-        </ul>
-      </div>
-
-      <!-- 緊急時の案内 -->
-      <div v-if="store.symptomsAnalysisResult.value!.emergency_guidance" class="emergency-advice">
-        <strong>{{ store.symptomsAnalysisResult.value!.emergency_guidance }}</strong>
-      </div>
-
-      <!-- 該当する症状カテゴリ -->
-      <div class="matched-categories">
-        <h4>📋 該当する症状カテゴリ：</h4>
-        <div class="category-tags">
-          <span
-            v-for="category in store.symptomsAnalysisResult.value!.matched_categories"
-            :key="category"
-            class="category-tag"
+      <div class="voice-display">
+        <div class="transcript-area">
+          <h3>📝 お伺い内容</h3>
+          <div
+            class="transcript-content"
+            :class="{ 'listening': store.voiceStatus.value.isRecording }"
           >
-            {{ category }}
+            <div v-if="store.voiceStatus.value.isRecording && !store.currentTranscript.value" class="listening-indicator">
+              🎤 症状を聞かせてください...<br>
+              <small>（「以上です」や「おわります」と発言すると終了できます）</small><br>
+              <small>（「やり直し」や「リセット」と発言すると文章がリセットされます）</small>
+            </div>
+            <div v-if="store.currentTranscript.value" class="current-transcript">
+              {{ store.currentTranscript.value }}
+            </div>
+            <div v-if="!store.voiceStatus.value.isRecording && !store.finalTranscript.value && !store.allRecognizedText.value" class="waiting-voice">
+              音声認識待機中
+            </div>
+            <div v-if="store.allRecognizedText.value" class="final-transcript">
+              <strong>最終認識結果:</strong><br>
+              {{ store.allRecognizedText.value }}
+            </div>
+            <div v-if="store.voiceStatus.value.isProcessing" class="processing-indicator">
+              🔍 症状を分析中...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 症状分析結果表示 -->
+      <div
+        v-if="store.hasSymptomsResult.value"
+        class="symptoms-analysis-results"
+        :key="store.symptomsAnalysisTimestamp.value"
+      >
+        <h3>🩺 症状分析結果</h3>
+
+        <!-- お名前・電話番号表示 -->
+        <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana || store.patientInfo.value.profile_phone" class="patient-info">
+          <h4>👤 患者情報：</h4>
+          <div class="info-grid">
+            <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana" class="info-item">
+              <span class="info-label">お名前：</span>
+              <span class="info-value">
+                {{ store.patientInfo.value.profile_name_last_kana }}
+                {{ store.patientInfo.value.profile_name_first_kana }}
+                <span v-if="!store.patientInfo.value.profile_name_last_kana && !store.patientInfo.value.profile_name_first_kana" class="info-missing">（聞き取れませんでした）</span>
+              </span>
+            </div>
+            <div v-if="store.patientInfo.value.profile_phone" class="info-item">
+              <span class="info-label">電話番号：</span>
+              <span class="info-value">
+                {{ store.patientInfo.value.profile_phone }}
+                <span v-if="!store.patientInfo.value.profile_phone" class="info-missing">（聞き取れませんでした）</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 緊急度表示 -->
+        <div
+          :class="['emergency-indicator', store.symptomsAnalysisResult.value!.is_emergency ? 'emergency' : 'normal']"
+        >
+          <span class="emergency-icon">
+            {{ store.symptomsAnalysisResult.value!.is_emergency ? '🚨' : '✅' }}
+          </span>
+          <span class="emergency-text">
+            {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : '通常の症状です' }}
           </span>
         </div>
-      </div>
 
-      <!-- デバッグ情報 -->
-      <div class="debug-info">
-        <details>
-          <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">🔧 症状分析デバッグ情報（開発者用）</summary>
-          <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px; overflow-x: auto;">{{ JSON.stringify(store.symptomsAnalysisResult.value, null, 2) }}</pre>
-        </details>
+        <!-- 緊急理由 -->
+        <div v-if="store.symptomsAnalysisResult.value!.is_emergency && store.symptomsAnalysisResult.value!.emergency_reasons.length > 0" class="emergency-reasons">
+          <h4>⚠️ 緊急対応が必要な理由：</h4>
+          <ul>
+            <li v-for="reason in store.symptomsAnalysisResult.value!.emergency_reasons" :key="reason">
+              {{ reason }}
+            </li>
+          </ul>
+        </div>
+
+        <!-- 緊急時の案内 -->
+        <div v-if="store.symptomsAnalysisResult.value!.emergency_guidance" class="emergency-advice">
+          <strong>{{ store.symptomsAnalysisResult.value!.emergency_guidance }}</strong>
+        </div>
+
+        <!-- 該当する症状カテゴリ -->
+        <div class="matched-categories">
+          <h4>📋 該当する症状カテゴリ：</h4>
+          <div class="category-tags">
+            <span
+              v-for="category in store.symptomsAnalysisResult.value!.matched_categories"
+              :key="category"
+              class="category-tag"
+            >
+              {{ category }}
+            </span>
+          </div>
+        </div>
+
+        <!-- デバッグ情報 -->
+        <div class="debug-info">
+          <details>
+            <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">🔧 症状分析デバッグ情報（開発者用）</summary>
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 12px; overflow-x: auto;">{{ JSON.stringify(store.symptomsAnalysisResult.value, null, 2) }}</pre>
+          </details>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore, type SymptomsAnalysisResult } from '../stores/appStore'
 
 // Web Speech API type definitions
@@ -196,6 +203,31 @@ const store = useAppStore()
 
 // Voice recognition related refs
 const recognition = ref<SpeechRecognition | null>(null)
+
+// Avatar switching
+const avatarImages = [
+  '../img/avator-fastdoctor-1.png',
+  '../img/avator-fastdoctor-2.png',
+  '../img/avator-fastdoctor-3.png'
+]
+const currentAvatarIndex = ref(0)
+const currentAvatarSrc = computed(() => avatarImages[currentAvatarIndex.value])
+
+// Avatar switching interval
+let avatarInterval: number | null = null
+
+const startAvatarSwitching = () => {
+  avatarInterval = setInterval(() => {
+    currentAvatarIndex.value = (currentAvatarIndex.value + 1) % avatarImages.length
+  }, 1000) // 1秒間隔
+}
+
+const stopAvatarSwitching = () => {
+  if (avatarInterval) {
+    clearInterval(avatarInterval)
+    avatarInterval = null
+  }
+}
 
 // Web Speech API support check
 const isWebSpeechSupported = computed(() => {
@@ -325,6 +357,8 @@ const initSpeechRecognition = (): void => {
         error: `音声認識エラー: ${event.error}`,
         isRecording: false
       })
+      // アバター切り替えを停止
+      stopAvatarSwitching()
     }
 
     recognition.value.onend = () => {
@@ -352,6 +386,9 @@ const startVoiceRecognition = async (): Promise<void> => {
   // 新しい認識を開始する際に前の結果をクリア
   store.resetVoiceData()
 
+  // アバター切り替えを開始
+  startAvatarSwitching()
+
   try {
     // 音声案内を再生
     await speakMessage('こんにちは！予約受付担当のよやっくまです！お名前・電話番号・症状の順番でお聞かせください！一通りきかせていただいた後は以上ですと言ってください')
@@ -377,6 +414,8 @@ const stopVoiceRecognition = (): void => {
   if (recognition.value) {
     recognition.value.stop()
   }
+  // アバター切り替えを停止
+  stopAvatarSwitching()
 }
 
 // Symptoms analysis method
@@ -457,9 +496,49 @@ onMounted(() => {
     console.log('Loaded existing FormData from localStorage:', existingFormData)
   }
 })
+
+onUnmounted(() => {
+  stopAvatarSwitching()
+})
 </script>
 
 <style scoped>
+/* Panel Layout Styles */
+.left-panel {
+  width: 50%;
+  float: left;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-container {
+  text-align: center;
+}
+
+.avatar-image {
+  max-width: 80%;
+  max-height: 80%;
+  border-radius: 15px;
+  transition: transform 0.3s ease;
+}
+
+.avatar-image:hover {
+  transform: scale(1.05);
+}
+
+.right-panel {
+  width: 50%;
+  float: right;
+  background: white;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 20px;
+}
+
 /* Voice Chat Section Styles */
 .voice-chat-section {
   background: white;
