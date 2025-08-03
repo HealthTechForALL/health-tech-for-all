@@ -7,6 +7,20 @@ export interface PersonalInfo {
   gender: string;
 }
 
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'completed';
+  category: 'document' | 'medicine' | 'address';
+}
+
+export interface TaskList {
+  items: TaskItem[];
+  completedCount: number;
+  totalCount: number;
+}
+
 export interface AnalysisResult {
   isHealthInsuranceCard: boolean;
   isMedicineNotebook: boolean;
@@ -91,9 +105,13 @@ export interface AppStore {
   // Form Data (reactive refs)
   formData: Ref<FormData | null>;
 
+  // Task List State (reactive refs)
+  taskList: Ref<TaskList>;
+
   // Computed (computed refs)
   hasAnalysisResult: ComputedRef<boolean>;
   hasSymptomsResult: ComputedRef<boolean>;
+  taskProgress: ComputedRef<string>;
 
   // Camera & Analysis Methods
   updateCameraStatus: (status: Partial<CameraStatus>) => void;
@@ -110,6 +128,12 @@ export interface AppStore {
   // Patient Info Methods
   updatePatientInfo: (info: Partial<PatientInfo>) => void;
   clearPatientInfo: () => void;
+
+  // Task List Methods
+  initializeTasks: () => void;
+  updateTaskStatus: (taskId: string, status: 'pending' | 'completed') => void;
+  markTaskCompleted: (taskId: string) => void;
+  resetTasks: () => void;
 
   // LocalStorage Methods
   saveFormDataToLocalStorage: () => void;
@@ -153,9 +177,20 @@ export function createAppStore(): AppStore {
 
   const formData = ref<FormData | null>(null)
 
+  // Task List State
+  const taskList = ref<TaskList>({
+    items: [],
+    completedCount: 0,
+    totalCount: 0
+  })
+
   // Computed values
   const hasAnalysisResult = computed(() => analysisResult.value !== null)
   const hasSymptomsResult = computed(() => symptomsAnalysisResult.value !== null)
+  const taskProgress = computed(() => {
+    const { completedCount, totalCount } = taskList.value
+    return `${completedCount}/${totalCount}完了`
+  })
 
   // Camera & Analysis Methods
   const updateCameraStatus = (status: Partial<CameraStatus>) => {
@@ -248,6 +283,56 @@ export function createAppStore(): AppStore {
     }
   }
 
+  // Task List Methods
+  const initializeTasks = () => {
+    const defaultTasks: TaskItem[] = [
+      {
+        id: 'insurance_card',
+        title: '健康保険証等の提示',
+        description: '健康保険証もしくはマイナンバーカードもしくは「資格情報のお知らせ」の紙を見せてください',
+        status: 'pending',
+        category: 'document'
+      },
+      {
+        id: 'medicine_notebook',
+        title: 'おくすり手帳の提示',
+        description: 'おくすり手帳の中のページを見せてください (表紙ではなく中身をお願いいたします)',
+        status: 'pending',
+        category: 'medicine'
+      },
+      {
+        id: 'address_verification',
+        title: '住所確認書類の提示',
+        description: '運転免許証や郵便物など住所がわかるものを見せてください',
+        status: 'pending',
+        category: 'address'
+      }
+    ]
+
+    taskList.value = {
+      items: defaultTasks,
+      completedCount: 0,
+      totalCount: defaultTasks.length
+    }
+  }
+
+  const updateTaskStatus = (taskId: string, status: 'pending' | 'completed') => {
+    const task = taskList.value.items.find(item => item.id === taskId)
+    if (task) {
+      task.status = status
+      // Update completed count
+      taskList.value.completedCount = taskList.value.items.filter(item => item.status === 'completed').length
+    }
+  }
+
+  const markTaskCompleted = (taskId: string) => {
+    updateTaskStatus(taskId, 'completed')
+  }
+
+  const resetTasks = () => {
+    initializeTasks()
+  }
+
   // LocalStorage Methods
   const saveFormDataToLocalStorage = () => {
     try {
@@ -316,10 +401,12 @@ export function createAppStore(): AppStore {
     symptomsAnalysisTimestamp,
     patientInfo,
     formData,
+    taskList,
 
     // Computed
     hasAnalysisResult,
     hasSymptomsResult,
+    taskProgress,
 
     // Methods
     updateCameraStatus,
@@ -334,6 +421,12 @@ export function createAppStore(): AppStore {
     // Patient Info Methods
     updatePatientInfo,
     clearPatientInfo,
+
+    // Task List Methods
+    initializeTasks,
+    updateTaskStatus,
+    markTaskCompleted,
+    resetTasks,
 
     // LocalStorage Methods
     saveFormDataToLocalStorage,

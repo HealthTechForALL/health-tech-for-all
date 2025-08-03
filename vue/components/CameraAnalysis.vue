@@ -1,5 +1,59 @@
 <template>
   <div class="camera-analysis-container">
+    <!-- やることリスト -->
+    <div class="task-list-section">
+      <h3>📋 やることリスト</h3>
+      <p class="task-intro">オンライン診療を開始するために、以下の書類をご準備ください：</p>
+
+      <div class="progress-indicator">
+        <div class="progress-text">進捗: {{ store.taskProgress.value }}</div>
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            :style="{ width: `${(store.taskList.value.completedCount / store.taskList.value.totalCount) * 100}%` }"
+          ></div>
+        </div>
+      </div>
+
+      <div class="task-items">
+        <div
+          v-for="task in store.taskList.value.items"
+          :key="task.id"
+          class="task-item"
+          :class="{ 'completed': task.status === 'completed' }"
+        >
+          <div class="task-header">
+            <div class="task-status-icon">
+              <span v-if="task.status === 'completed'" class="status-completed">✅</span>
+              <span v-else class="status-pending">⏳</span>
+            </div>
+            <div class="task-title">{{ task.title }}</div>
+            <div class="task-status-text">
+              <span v-if="task.status === 'completed'" class="status-text completed">完了</span>
+              <span v-else class="status-text pending">これから</span>
+            </div>
+          </div>
+          <div class="task-description">
+            {{ task.description }}
+          </div>
+          <div v-if="task.status === 'pending'" class="task-actions">
+            <button
+              @click="markTaskCompleted(task.id)"
+              class="btn complete-btn"
+            >
+              完了にする
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="task-actions-bottom">
+        <button @click="resetAllTasks" class="btn reset-btn">
+          リストをリセット
+        </button>
+      </div>
+    </div>
+
     <!-- Camera Section -->
     <div class="camera-section">
       <h2>📷 カメラ</h2>
@@ -181,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, onMounted } from 'vue'
 import { useAppStore, type AnalysisResult } from '../stores/appStore'
 
 // Use store
@@ -399,6 +453,21 @@ const getStatusClass = (isPositive: boolean): string => {
   return isPositive ? 'positive' : 'negative'
 }
 
+// Task Management Methods
+const markTaskCompleted = (taskId: string): void => {
+  store.markTaskCompleted(taskId)
+}
+
+const resetAllTasks = (): void => {
+  store.resetTasks()
+}
+
+// Lifecycle
+onMounted(() => {
+  // Initialize tasks
+  store.initializeTasks()
+})
+
 // Cleanup on unmount
 onUnmounted(() => {
   stopCamera()
@@ -413,7 +482,187 @@ onUnmounted(() => {
   align-items: start;
 }
 
+/* Task List Section Styles */
+.task-list-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 30px;
+  border: 2px solid #007bff;
+  grid-column: 1 / -1; /* Span full width */
+}
+
+.task-list-section h3 {
+  color: #007bff;
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 1.3em;
+}
+
+.task-intro {
+  text-align: center;
+  color: #495057;
+  margin-bottom: 20px;
+  font-weight: 500;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+}
+
+.progress-indicator {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.progress-text {
+  color: #007bff;
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 1.1em;
+}
+
+.progress-bar {
+  background: #e9ecef;
+  border-radius: 10px;
+  height: 20px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, #28a745, #20c997);
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 10px;
+}
+
+.task-items {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.task-item {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #dee2e6;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.task-item:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.task-item.completed {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #28a745;
+  opacity: 0.9;
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.task-status-icon {
+  margin-right: 12px;
+  font-size: 1.5em;
+}
+
+.task-title {
+  flex: 1;
+  font-weight: bold;
+  color: #343a40;
+  font-size: 1.1em;
+}
+
+.task-status-text {
+  margin-left: 10px;
+}
+
+.status-text {
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.status-text.completed {
+  background: #28a745;
+  color: white;
+}
+
+.status-text.pending {
+  background: #ffc107;
+  color: #212529;
+}
+
+.task-description {
+  color: #6c757d;
+  line-height: 1.6;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(248, 249, 250, 0.8);
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.task-actions {
+  text-align: right;
+}
+
+.complete-btn {
+  background: linear-gradient(45deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.complete-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.task-actions-bottom {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.reset-btn {
+  background: linear-gradient(45deg, #6c757d, #495057);
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.reset-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
 /* Camera Section Styles */
+.camera-analysis-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
 .camera-section {
   background: white;
   border-radius: 15px;
