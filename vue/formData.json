@@ -1,0 +1,21 @@
+{
+    "symptoms_categories": [],
+    "symptoms": "",
+    "profile_name_first_kana": "",
+    "profile_name_last_kana": "",
+    "profile_gender": "",
+    "profile_birthday_year": 0,
+    "profile_birthday_month": 0,
+    "profile_birthday_day": 0,
+    "profile_phone": "",
+    "profile_location_zip": "",
+    "profile_location_prefecture": "",
+    "profile_location_municipality": "",
+    "profile_location_town": "",
+    "profile_location_house_number": "",
+    "profile_location_building_and_room_number": "",
+    "base64_image_insurance_card": "",
+    "base64_image_medication_notebook": "",
+    "base64_image_credentials_information": ""
+  }
+  
