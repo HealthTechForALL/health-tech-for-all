@@ -18,7 +18,7 @@
       <div class="card">
         <!-- ステップ1: 症状チェック -->
         <div v-if="step === 1">
-          <SymptomsCheck />
+          <SymptomsCheck @next-step="next" />
         </div>
         
         <!-- ステップ2: カメラ分析 -->

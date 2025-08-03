@@ -8,7 +8,7 @@
     <div class="voice-chat-section">
       <h2>症状チェックコーナー</h2>
       <div class="voice-intro">
-        <p class="intro-message">症状、お名前、電話番号を順番にお聞かせください</p>
+        <p class="intro-message">お名前、電話番号、症状を順番にお聞かせください</p>
       </div>
       <div v-if="!store.voiceStatus.value.isRecording && !store.allRecognizedText.value && !store.voiceStatus.value.isProcessing" class="voice-controls">
         <button
@@ -60,13 +60,13 @@
         </div>
       </div>
 
-      <!-- 症状分析結果表示 -->
+      <!-- まとめ表示 -->
       <div
         v-if="store.hasSymptomsResult.value"
         class="symptoms-analysis-results"
         :key="store.symptomsAnalysisTimestamp.value"
       >
-        <h3>🩺 症状分析結果</h3>
+        <h3>🩺 まとめ</h3>
 
         <!-- お名前・電話番号表示 -->
         <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana || store.patientInfo.value.profile_phone" class="patient-info">
@@ -98,7 +98,7 @@
             {{ store.symptomsAnalysisResult.value!.is_emergency ? '🚨' : '✅' }}
           </span>
           <span class="emergency-text">
-            {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : '通常の症状です' }}
+            {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : 'オンライン診療をご利用いただける症状です' }}
           </span>
         </div>
 
@@ -144,8 +144,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore, type SymptomsAnalysisResult } from '../stores/appStore'
+
+// Define emits
+const emit = defineEmits<{
+  'next-step': []
+}>()
 
 // Web Speech API type definitions
 interface SpeechRecognition extends EventTarget {
@@ -212,7 +217,7 @@ const currentAvatarIndex = ref(0)
 const currentAvatarSrc = computed(() => avatarImages[currentAvatarIndex.value])
 
 // Avatar switching interval
-let avatarInterval: number | null = null
+let avatarInterval: NodeJS.Timeout | null = null
 
 const startAvatarSwitching = () => {
   avatarInterval = setInterval(() => {
@@ -224,6 +229,28 @@ const stopAvatarSwitching = () => {
   if (avatarInterval) {
     clearInterval(avatarInterval)
     avatarInterval = null
+  }
+}
+
+// Auto next step timer
+let autoNextTimer: ReturnType<typeof setTimeout> | null = null
+
+const startAutoNextTimer = () => {
+  if (autoNextTimer) {
+    clearTimeout(autoNextTimer)
+  }
+  autoNextTimer = setTimeout(async () => {
+    // 音声案内を再生
+    await speakMessage('次のステップに進みます')
+    // Emit event to parent component to go to next step
+    emit('next-step')
+  }, 5000) // 5秒後に次のステップへ
+}
+
+const stopAutoNextTimer = () => {
+  if (autoNextTimer) {
+    clearTimeout(autoNextTimer)
+    autoNextTimer = null
   }
 }
 
@@ -448,7 +475,7 @@ const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> =
     store.setSymptomsAnalysisResult(result)
 
     // Save FormData to localStorage after receiving response
-    store.saveFormDataToLocalStorage()
+    store.saveFormDataToLocalStorage('symptoms_analysis')
 
   } catch (error) {
     console.error('Error analyzing symptoms:', error)
@@ -495,8 +522,17 @@ onMounted(() => {
   }
 })
 
+// Watch for symptoms analysis result and start auto next timer
+watch(() => store.hasSymptomsResult.value, (hasResult) => {
+  if (hasResult) {
+    console.log('Symptoms analysis result received, starting auto next timer')
+    startAutoNextTimer()
+  }
+})
+
 onUnmounted(() => {
   stopAvatarSwitching()
+  stopAutoNextTimer()
 })
 </script>
 

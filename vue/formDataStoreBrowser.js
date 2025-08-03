@@ -2,7 +2,7 @@
    formDataStoreBrowser.js  (localStorage 版)
    ========================================= */
 
-   const KEY = 'formdata.json';   // localStorage のキー名
+   const KEY = 'formData';   // localStorage のキー名
 
    /* ----- テンプレート JSON ----- */
    const TEMPLATE = {

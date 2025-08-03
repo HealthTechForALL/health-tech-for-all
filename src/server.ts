@@ -148,44 +148,60 @@ app.post('/api/analyze-image', async (req, res) => {
 
 1. 健康保険証（保険証）かどうか
 2. おくすり手帳（薬手帳）かどうか
-3. 表紙だけでなく中身（詳細情報）がしっかり見える状態かどうか
-4. 健康保険証が真っ直ぐ撮影されているか（文字が傾いていないか）
-5. おくすり手帳が真っ直ぐ撮影されているか（文字が傾いていないか）
-6. 健康保険証の内容が指や手の反射・影で隠れているかどうか
-7. おくすり手帳の内容が指や手の反射・影で隠れているかどうか
-8. 健康保険証の場合、生年月日・氏名・性別が読み取れるかどうか
+3. 運転免許証や郵便物など住所がわかるものかどうか
+4. 表紙だけでなく中身（詳細情報）がしっかり見える状態かどうか
+5. 健康保険証が真っ直ぐ撮影されているか（文字が傾いていないか）
+6. おくすり手帳が真っ直ぐ撮影されているか（文字が傾いていないか）
+7. 健康保険証の内容が指や手の反射・影で隠れているかどうか
+8. おくすり手帳の内容が指や手の反射・影で隠れているかどうか
+9. 生年月日・性別・住所が読み取れるかどうか
 
 必ずJSONフォーマットで以下のように返してください：
 {
   "isHealthInsuranceCard": boolean,
   "isMedicineNotebook": boolean,
+  "isAddressDocument": boolean,
   "isContentVisible": boolean,
   "isHealthInsuranceCardStraight": boolean,
   "isMedicineNotebookStraight": boolean,
   "isHealthInsuranceCardObstructed": boolean,
   "isMedicineNotebookObstructed": boolean,
   "canReadPersonalInfo": boolean,
-  "personalInfo": {
-    "birthDate": "読み取れた生年月日（読み取れない場合は空文字）",
-    "name": "読み取れた氏名（読み取れない場合は空文字）",
-    "gender": "読み取れた性別（読み取れない場合は空文字）"
-  },
-  "analysis": "詳細な分析結果",
-  "suggestions": "改善点があれば提案"
+  "profile_gender": "female" | "male" | "",
+  "profile_birthday_year": number | null,
+  "profile_birthday_month": number | null,
+  "profile_birthday_day": number | null,
+  "profile_location_zip": string,
+  "profile_location_prefecture": string,
+  "profile_location_municipality": string,
+  "profile_location_town": string,
+  "profile_location_house_number": string,
+  "profile_location_building_and_room_number": string,
+  "analysis": "詳細な分析結果"
 }
 
 判定基準：
 - isHealthInsuranceCard: 健康保険証や保険証と明確に判定できる場合のみtrue、それ以外はfalse
-- isMedicineNotebook: おくすり手帳や薬手帳と明確に判定できる場合のみtrue、それ以外はfalse
+- isMedicineNotebook: おくすり手帳や薬手帳、医療機関から発行された処方箋または薬剤情報の一覧表と明確に判定できる場合のみtrue、処方日、薬剤名、服用方法などが記載されていればおくすり手帳ということでtrue、それ以外はfalse
+- isAddressDocument: 運転免許証、郵便物、住民票、公共料金の請求書など住所が記載された書類と明確に判定できる場合のみtrue、それ以外はfalse
 - isContentVisible: 文字や詳細情報がはっきりと読み取れる場合true、ぼやけている・見えない場合false
 - isHealthInsuranceCardStraight: 健康保険証の文字や枠線が水平に撮影されている場合true、傾いている場合false（健康保険証でない場合はfalse）
 - isMedicineNotebookStraight: おくすり手帳の文字や枠線が水平に撮影されている場合true、傾いている場合false（おくすり手帳でない場合はfalse）
 - isHealthInsuranceCardObstructed: 健康保険証の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（健康保険証でない場合はfalse）
 - isMedicineNotebookObstructed: おくすり手帳の内容が指や手の反射・影・光で隠れている場合true、問題ない場合false（おくすり手帳でない場合はfalse）
-- canReadPersonalInfo: 健康保険証で生年月日・氏名・性別が明確に読み取れる場合true、読み取れない場合false（健康保険証でない場合はfalse）
-- personalInfo: 健康保険証から読み取った個人情報（読み取れない場合は空文字）
+- canReadPersonalInfo: 生年月日・性別・住所が明確に読み取れる場合true、読み取れない場合false
+- profile_gender: 性別が読み取れる場合は"female"または"male"、読み取れない場合は空文字
+- profile_birthday_year: 生年月日の年が読み取れる場合は数値、読み取れない場合はnull
+- profile_birthday_month: 生年月日の月が読み取れる場合は1-12の数値、読み取れない場合はnull
+- profile_birthday_day: 生年月日の日が読み取れる場合は数値、読み取れない場合はnull
+- profile_location_zip: 郵便番号が読み取れる場合は文字列、読み取れない場合は空文字
+- profile_location_prefecture: 都道府県が読み取れる場合は文字列、読み取れない場合は空文字
+- profile_location_municipality: 市区町村が読み取れる場合は文字列、読み取れない場合は空文字
+- profile_location_town: 町域・字が読み取れる場合は文字列、読み取れない場合は空文字
+- profile_location_house_number: 番地が読み取れる場合は文字列、読み取れない場合は空文字
+- profile_location_building_and_room_number: 建物名・部屋番号が読み取れる場合は文字列、読み取れない場合は空文字
 
-注意：個人情報は正確に読み取れる場合のみ記録し、不明瞭な場合は空文字にしてください。
+注意：個人情報は正確に読み取れる場合のみ記録し、不明瞭な場合は空文字またはnullにしてください。
 
 また "analysis" の内容をしっかり反芻し、健康保険証やおくすり手帳ではありません。という結果の場合もしっかり isHealthInsuranceCard や isMedicineNotebook の値をfalseにしてください。
 
@@ -233,19 +249,24 @@ app.post('/api/analyze-image', async (req, res) => {
       analysisResult = {
         isHealthInsuranceCard: parsedResult.isHealthInsuranceCard === true,
         isMedicineNotebook: parsedResult.isMedicineNotebook === true,
+        isAddressDocument: parsedResult.isAddressDocument === true,
         isContentVisible: parsedResult.isContentVisible === true,
         isHealthInsuranceCardStraight: parsedResult.isHealthInsuranceCardStraight === true,
         isMedicineNotebookStraight: parsedResult.isMedicineNotebookStraight === true,
         isHealthInsuranceCardObstructed: parsedResult.isHealthInsuranceCardObstructed === true,
         isMedicineNotebookObstructed: parsedResult.isMedicineNotebookObstructed === true,
         canReadPersonalInfo: parsedResult.canReadPersonalInfo === true,
-        personalInfo: {
-          birthDate: parsedResult.personalInfo?.birthDate || '',
-          name: parsedResult.personalInfo?.name || '',
-          gender: parsedResult.personalInfo?.gender || ''
-        },
-        analysis: parsedResult.analysis || '',
-        suggestions: parsedResult.suggestions || "画像をより鮮明に撮影してください"
+        profile_gender: parsedResult.profile_gender || '',
+        profile_birthday_year: parsedResult.profile_birthday_year || null,
+        profile_birthday_month: parsedResult.profile_birthday_month || null,
+        profile_birthday_day: parsedResult.profile_birthday_day || null,
+        profile_location_zip: parsedResult.profile_location_zip || '',
+        profile_location_prefecture: parsedResult.profile_location_prefecture || '',
+        profile_location_municipality: parsedResult.profile_location_municipality || '',
+        profile_location_town: parsedResult.profile_location_town || '',
+        profile_location_house_number: parsedResult.profile_location_house_number || '',
+        profile_location_building_and_room_number: parsedResult.profile_location_building_and_room_number || '',
+        analysis: parsedResult.analysis || ''
       };
 
       console.log('Parsed analysis result:', analysisResult);
@@ -255,25 +276,31 @@ app.post('/api/analyze-image', async (req, res) => {
       // If JSON parsing fails, fallback to text analysis
       const isHealthInsuranceCard = text.includes('保険証') || text.includes('健康保険証');
       const isMedicineNotebook = text.includes('おくすり手帳') || text.includes('薬手帳');
+      const isAddressDocument = text.includes('運転免許証') || text.includes('郵便物') || text.includes('住民票') || text.includes('住所');
       const isNotDetected = text.includes('確認できません') || text.includes('わかりません') || text.includes('判定できません');
       const isStraight = text.includes('真っ直ぐ') || text.includes('水平') || (text.includes('傾') && text.includes('ない'));
 
       analysisResult = {
         isHealthInsuranceCard: isNotDetected ? false : isHealthInsuranceCard,
         isMedicineNotebook: isNotDetected ? false : isMedicineNotebook,
+        isAddressDocument: isNotDetected ? false : isAddressDocument,
         isContentVisible: text.includes('見える') || text.includes('読める') || text.includes('詳細'),
         isHealthInsuranceCardStraight: isNotDetected ? false : (isHealthInsuranceCard && isStraight),
         isMedicineNotebookStraight: isNotDetected ? false : (isMedicineNotebook && isStraight),
         isHealthInsuranceCardObstructed: isNotDetected ? false : (isHealthInsuranceCard && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
         isMedicineNotebookObstructed: isNotDetected ? false : (isMedicineNotebook && (text.includes('隠れ') || text.includes('反射') || text.includes('影'))),
-        canReadPersonalInfo: isNotDetected ? false : (isHealthInsuranceCard && (text.includes('氏名') || text.includes('生年月日') || text.includes('性別'))),
-        personalInfo: {
-          birthDate: '',
-          name: '',
-          gender: ''
-        },
-        analysis: text,
-        suggestions: "画像をより鮮明に撮影してください"
+        canReadPersonalInfo: isNotDetected ? false : (text.includes('生年月日') || text.includes('性別') || text.includes('住所')),
+        profile_gender: '',
+        profile_birthday_year: null,
+        profile_birthday_month: null,
+        profile_birthday_day: null,
+        profile_location_zip: '',
+        profile_location_prefecture: '',
+        profile_location_municipality: '',
+        profile_location_town: '',
+        profile_location_house_number: '',
+        profile_location_building_and_room_number: '',
+        analysis: text
       };
     }
 

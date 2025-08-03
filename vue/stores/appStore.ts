@@ -1,22 +1,26 @@
 import { ref, computed, reactive, provide, inject, type Ref, type ComputedRef } from 'vue'
 
 // Type definitions
-export interface PersonalInfo {
-  birthDate: string;
-  name: string;
-  gender: string;
-}
-
 export interface AnalysisResult {
   isHealthInsuranceCard: boolean;
   isMedicineNotebook: boolean;
+  isAddressDocument: boolean;
   isContentVisible: boolean;
   isHealthInsuranceCardStraight: boolean;
   isMedicineNotebookStraight: boolean;
   isHealthInsuranceCardObstructed: boolean;
   isMedicineNotebookObstructed: boolean;
   canReadPersonalInfo: boolean;
-  personalInfo: PersonalInfo;
+  profile_gender: 'female' | 'male' | '';
+  profile_birthday_year: number | null;
+  profile_birthday_month: number | null;
+  profile_birthday_day: number | null;
+  profile_location_zip: string;
+  profile_location_prefecture: string;
+  profile_location_municipality: string;
+  profile_location_town: string;
+  profile_location_house_number: string;
+  profile_location_building_and_room_number: string;
   analysis: string;
   suggestions: string;
 }
@@ -70,6 +74,20 @@ export interface FormData {
   base64_image_credentials_information: string;
 }
 
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'completed';
+  category: 'document' | 'medicine' | 'address';
+}
+
+export interface TaskList {
+  items: TaskItem[];
+  completedCount: number;
+  totalCount: number;
+}
+
 // Store interface
 export interface AppStore {
   // Camera & Analysis State (reactive refs)
@@ -91,9 +109,13 @@ export interface AppStore {
   // Form Data (reactive refs)
   formData: Ref<FormData | null>;
 
+  // Task List State (reactive refs)
+  taskList: Ref<TaskList>;
+
   // Computed (computed refs)
   hasAnalysisResult: ComputedRef<boolean>;
   hasSymptomsResult: ComputedRef<boolean>;
+  taskProgress: ComputedRef<string>;
 
   // Camera & Analysis Methods
   updateCameraStatus: (status: Partial<CameraStatus>) => void;
@@ -111,8 +133,14 @@ export interface AppStore {
   updatePatientInfo: (info: Partial<PatientInfo>) => void;
   clearPatientInfo: () => void;
 
+  // Task List Methods
+  initializeTasks: () => void;
+  updateTaskStatus: (taskId: string, status: 'pending' | 'completed') => void;
+  markTaskCompleted: (taskId: string) => void;
+  resetTasks: () => void;
+
   // LocalStorage Methods
-  saveFormDataToLocalStorage: () => void;
+  saveFormDataToLocalStorage: (activeTaskId?: string) => void;
   loadFormDataFromLocalStorage: () => FormData | null;
   clearFormDataFromLocalStorage: () => void;
 }
@@ -153,9 +181,20 @@ export function createAppStore(): AppStore {
 
   const formData = ref<FormData | null>(null)
 
+  // Task List State
+  const taskList = ref<TaskList>({
+    items: [],
+    completedCount: 0,
+    totalCount: 0
+  })
+
   // Computed values
   const hasAnalysisResult = computed(() => analysisResult.value !== null)
   const hasSymptomsResult = computed(() => symptomsAnalysisResult.value !== null)
+  const taskProgress = computed(() => {
+    const { completedCount, totalCount } = taskList.value
+    return `${completedCount}/${totalCount}完了`
+  })
 
   // Camera & Analysis Methods
   const updateCameraStatus = (status: Partial<CameraStatus>) => {
@@ -166,17 +205,23 @@ export function createAppStore(): AppStore {
     analysisResult.value = {
       isHealthInsuranceCard: Boolean(result.isHealthInsuranceCard),
       isMedicineNotebook: Boolean(result.isMedicineNotebook),
+      isAddressDocument: Boolean(result.isAddressDocument),
       isContentVisible: Boolean(result.isContentVisible),
       isHealthInsuranceCardStraight: Boolean(result.isHealthInsuranceCardStraight),
       isMedicineNotebookStraight: Boolean(result.isMedicineNotebookStraight),
       isHealthInsuranceCardObstructed: Boolean(result.isHealthInsuranceCardObstructed),
       isMedicineNotebookObstructed: Boolean(result.isMedicineNotebookObstructed),
       canReadPersonalInfo: Boolean(result.canReadPersonalInfo),
-      personalInfo: {
-        birthDate: String(result.personalInfo?.birthDate || ''),
-        name: String(result.personalInfo?.name || ''),
-        gender: String(result.personalInfo?.gender || '')
-      },
+      profile_gender: result.profile_gender || '',
+      profile_birthday_year: result.profile_birthday_year || null,
+      profile_birthday_month: result.profile_birthday_month || null,
+      profile_birthday_day: result.profile_birthday_day || null,
+      profile_location_zip: result.profile_location_zip || '',
+      profile_location_prefecture: result.profile_location_prefecture || '',
+      profile_location_municipality: result.profile_location_municipality || '',
+      profile_location_town: result.profile_location_town || '',
+      profile_location_house_number: result.profile_location_house_number || '',
+      profile_location_building_and_room_number: result.profile_location_building_and_room_number || '',
       analysis: String(result.analysis || ''),
       suggestions: String(result.suggestions || '')
     }
@@ -248,33 +293,158 @@ export function createAppStore(): AppStore {
     }
   }
 
-  // LocalStorage Methods
-  const saveFormDataToLocalStorage = () => {
+  // Task List Methods
+  const initializeTasks = () => {
+    const defaultTasks: TaskItem[] = [
+      {
+        id: 'insurance_card',
+        title: '健康保険証等の提示',
+        description: '健康保険証もしくはマイナンバーカードもしくは「資格情報のお知らせ」の紙を見せてください',
+        status: 'pending',
+        category: 'document'
+      },
+      {
+        id: 'medicine_notebook',
+        title: 'おくすり手帳の提示',
+        description: 'おくすり手帳の中のページを見せてください (表紙ではなく中身をお願いいたします)',
+        status: 'pending',
+        category: 'medicine'
+      },
+      {
+        id: 'address_verification',
+        title: '住所確認書類の提示',
+        description: '運転免許証や郵便物など住所がわかるものを見せてください',
+        status: 'pending',
+        category: 'address'
+      }
+    ]
+
+    taskList.value = {
+      items: defaultTasks,
+      completedCount: 0,
+      totalCount: defaultTasks.length
+    }
+  }
+
+  const updateTaskStatus = (taskId: string, status: 'pending' | 'completed') => {
+    const task = taskList.value.items.find(item => item.id === taskId)
+    if (task) {
+      task.status = status
+      // Update completed count
+      taskList.value.completedCount = taskList.value.items.filter(item => item.status === 'completed').length
+    }
+  }
+
+  const markTaskCompleted = (taskId: string) => {
+    updateTaskStatus(taskId, 'completed')
+  }
+
+  const resetTasks = () => {
+    initializeTasks()
+  }
+
+  // LocalStorage Methods with data protection
+  const saveFormDataToLocalStorage = (activeTaskId?: string) => {
     try {
+      // Load existing FormData from localStorage to preserve existing data
+      const existingFormData = loadFormDataFromLocalStorage()
+
       // Create FormData object with current state values
       const currentFormData: FormData = {
-        symptoms_categories: symptomsAnalysisResult.value?.matched_categories || [],
-        symptoms: allRecognizedText.value || '',
-        profile_name_first_kana: patientInfo.value.profile_name_first_kana || '',
-        profile_name_last_kana: patientInfo.value.profile_name_last_kana || '',
-        profile_gender: analysisResult.value?.personalInfo?.gender || '',
-        profile_birthday_year: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getFullYear() : 0,
-        profile_birthday_month: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getMonth() + 1 : 0,
-        profile_birthday_day: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getDate() : 0,
-        profile_phone: patientInfo.value.profile_phone || '',
-        profile_location_zip: '',
-        profile_location_prefecture: '',
-        profile_location_municipality: '',
-        profile_location_town: '',
-        profile_location_house_number: '',
-        profile_location_building_and_room_number: '',
-        base64_image_insurance_card: '',
-        base64_image_medication_notebook: '',
-        base64_image_credentials_information: ''
+        symptoms_categories: symptomsAnalysisResult.value?.matched_categories || existingFormData?.symptoms_categories || [],
+        symptoms: allRecognizedText.value || existingFormData?.symptoms || '',
+        // Protect name and phone data from being overwritten by camera analysis
+        profile_name_first_kana: existingFormData?.profile_name_first_kana || patientInfo.value.profile_name_first_kana || '',
+        profile_name_last_kana: existingFormData?.profile_name_last_kana || patientInfo.value.profile_name_last_kana || '',
+        profile_phone: existingFormData?.profile_phone || patientInfo.value.profile_phone || '',
+
+        // Handle personal info based on task type
+        profile_gender: (() => {
+          // For address verification task, don't update gender
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_gender || ''
+          }
+          return analysisResult.value?.profile_gender || existingFormData?.profile_gender || ''
+        })(),
+
+        profile_birthday_year: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_year || 0
+          }
+          return analysisResult.value?.profile_birthday_year || existingFormData?.profile_birthday_year || 0
+        })(),
+
+        profile_birthday_month: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_month || 0
+          }
+          return analysisResult.value?.profile_birthday_month || existingFormData?.profile_birthday_month || 0
+        })(),
+
+        profile_birthday_day: (() => {
+          // For address verification task, don't update birthday
+          if (activeTaskId === 'address_verification') {
+            return existingFormData?.profile_birthday_day || 0
+          }
+          return analysisResult.value?.profile_birthday_day || existingFormData?.profile_birthday_day || 0
+        })(),
+
+        // Address data - only update for address verification or when existing data is empty
+        profile_location_zip: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_zip) {
+            return analysisResult.value?.profile_location_zip || existingFormData?.profile_location_zip || ''
+          }
+          return existingFormData.profile_location_zip
+        })(),
+
+        profile_location_prefecture: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_prefecture) {
+            return analysisResult.value?.profile_location_prefecture || existingFormData?.profile_location_prefecture || ''
+          }
+          return existingFormData.profile_location_prefecture
+        })(),
+
+        profile_location_municipality: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_municipality) {
+            return analysisResult.value?.profile_location_municipality || existingFormData?.profile_location_municipality || ''
+          }
+          return existingFormData.profile_location_municipality
+        })(),
+
+        profile_location_town: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_town) {
+            return analysisResult.value?.profile_location_town || existingFormData?.profile_location_town || ''
+          }
+          return existingFormData.profile_location_town
+        })(),
+
+        profile_location_house_number: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_house_number) {
+            return analysisResult.value?.profile_location_house_number || existingFormData?.profile_location_house_number || ''
+          }
+          return existingFormData.profile_location_house_number
+        })(),
+
+        profile_location_building_and_room_number: (() => {
+          if (activeTaskId === 'address_verification' || !existingFormData?.profile_location_building_and_room_number) {
+            return analysisResult.value?.profile_location_building_and_room_number || existingFormData?.profile_location_building_and_room_number || ''
+          }
+          return existingFormData.profile_location_building_and_room_number
+        })(),
+
+        base64_image_insurance_card: existingFormData?.base64_image_insurance_card || '',
+        base64_image_medication_notebook: existingFormData?.base64_image_medication_notebook || '',
+        base64_image_credentials_information: existingFormData?.base64_image_credentials_information || ''
       }
 
       localStorage.setItem('formData', JSON.stringify(currentFormData))
-      console.log('FormData saved to localStorage:', currentFormData)
+      console.log('FormData saved to localStorage with protection:', {
+        activeTaskId,
+        savedData: currentFormData,
+        protectedFields: ['profile_name_first_kana', 'profile_name_last_kana', 'profile_phone']
+      })
     } catch (error) {
       console.error('Error saving FormData to localStorage:', error)
     }
@@ -316,10 +486,12 @@ export function createAppStore(): AppStore {
     symptomsAnalysisTimestamp,
     patientInfo,
     formData,
+    taskList,
 
     // Computed
     hasAnalysisResult,
     hasSymptomsResult,
+    taskProgress,
 
     // Methods
     updateCameraStatus,
@@ -334,6 +506,12 @@ export function createAppStore(): AppStore {
     // Patient Info Methods
     updatePatientInfo,
     clearPatientInfo,
+
+    // Task List Methods
+    initializeTasks,
+    updateTaskStatus,
+    markTaskCompleted,
+    resetTasks,
 
     // LocalStorage Methods
     saveFormDataToLocalStorage,
