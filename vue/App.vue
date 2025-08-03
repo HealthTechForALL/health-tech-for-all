@@ -2,8 +2,13 @@
   <div class="App">
     <!-- スタートページ -->
     <div v-if="!started" class="start-wrapper">
-      <div class="start-circle" @click="started = true">
-        START
+      <div class="start-content">
+        <h1 class="service-name">よやっクマ</h1>
+        <h2 class="app-title">FastDoctor予約フォーム</h2>
+        <p class="app-subtitle">症状チェックから予約まで、簡単3ステップ</p>
+        <div class="start-circle" @click="started = true">
+          START
+        </div>
       </div>
     </div>
 
@@ -119,6 +124,37 @@ html, body, #root {
   align-items: center;
   height: 100vh;
   background: #f7f5f3;
+}
+
+.start-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+}
+
+.service-name {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #164a9b;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.app-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #164a9b;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(22, 74, 155, 0.1);
+}
+
+.app-subtitle {
+  font-size: 1.1rem;
+  color: #666;
+  margin: 0;
+  font-weight: 400;
 }
 
 .start-circle {

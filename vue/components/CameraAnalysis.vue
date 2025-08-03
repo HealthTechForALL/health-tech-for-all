@@ -427,7 +427,6 @@ onUnmounted(() => {
   background: white;
   border-radius: 15px;
   padding: 25px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
 .camera-container {
@@ -441,7 +440,7 @@ onUnmounted(() => {
   width: 100%;
   height: auto;
   border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  border: 1px solid #000;
 }
 
 .camera-controls {
@@ -450,7 +449,7 @@ onUnmounted(() => {
 }
 
 .btn {
-  background: linear-gradient(45deg, #667eea, #764ba2);
+  background: linear-gradient(45deg, #667eea, #667eea);
   color: white;
   border: none;
   padding: 12px 25px;
@@ -460,12 +459,10 @@ onUnmounted(() => {
   font-weight: bold;
   margin: 0 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
 .btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
 .btn:disabled {
@@ -488,7 +485,6 @@ onUnmounted(() => {
   background: white;
   border-radius: 15px;
   padding: 25px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
 .analysis-results {

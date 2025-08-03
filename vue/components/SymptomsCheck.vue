@@ -434,7 +434,6 @@ onMounted(() => {
   background: white;
   border-radius: 15px;
   padding: 25px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
 .voice-intro {
@@ -450,7 +449,6 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 500;
   border: 2px solid #bbdefb;
-  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
   display: inline-block;
   margin-bottom: 10px;
 }
@@ -463,7 +461,6 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 400;
   border: 2px solid #e1bee7;
-  box-shadow: 0 2px 6px rgba(123, 31, 162, 0.1);
   display: inline-block;
   font-style: italic;
 }
@@ -483,12 +480,10 @@ onMounted(() => {
   font-size: 16px;
   font-weight: bold;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
 .voice-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
 .voice-btn.recording {
