@@ -182,7 +182,7 @@ app.post('/api/analyze-image', async (req, res) => {
 
 判定基準：
 - isHealthInsuranceCard: 健康保険証や保険証と明確に判定できる場合のみtrue、それ以外はfalse
-- isMedicineNotebook: おくすり手帳や薬手帳、医療機関から発行された処方箋または薬剤情報の一覧表と明確に判定できる場合のみtrue、それ以外はfalse
+- isMedicineNotebook: おくすり手帳や薬手帳、医療機関から発行された処方箋または薬剤情報の一覧表と明確に判定できる場合のみtrue、処方日、薬剤名、服用方法などが記載されていればおくすり手帳ということでtrue、それ以外はfalse
 - isAddressDocument: 運転免許証、郵便物、住民票、公共料金の請求書など住所が記載された書類と明確に判定できる場合のみtrue、それ以外はfalse
 - isContentVisible: 文字や詳細情報がはっきりと読み取れる場合true、ぼやけている・見えない場合false
 - isHealthInsuranceCardStraight: 健康保険証の文字や枠線が水平に撮影されている場合true、傾いている場合false（健康保険証でない場合はfalse）
