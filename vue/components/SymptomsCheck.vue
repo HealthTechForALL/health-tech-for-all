@@ -144,8 +144,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore, type SymptomsAnalysisResult } from '../stores/appStore'
+
+// Define emits
+const emit = defineEmits<{
+  'next-step': []
+}>()
 
 // Web Speech API type definitions
 interface SpeechRecognition extends EventTarget {
@@ -224,6 +229,28 @@ const stopAvatarSwitching = () => {
   if (avatarInterval) {
     clearInterval(avatarInterval)
     avatarInterval = null
+  }
+}
+
+// Auto next step timer
+let autoNextTimer: number | null = null
+
+const startAutoNextTimer = () => {
+  if (autoNextTimer) {
+    clearTimeout(autoNextTimer)
+  }
+  autoNextTimer = setTimeout(async () => {
+    // 音声案内を再生
+    await speakMessage('次のステップに進みます')
+    // Emit event to parent component to go to next step
+    emit('next-step')
+  }, 5000) // 5秒後に次のステップへ
+}
+
+const stopAutoNextTimer = () => {
+  if (autoNextTimer) {
+    clearTimeout(autoNextTimer)
+    autoNextTimer = null
   }
 }
 
@@ -495,8 +522,17 @@ onMounted(() => {
   }
 })
 
+// Watch for symptoms analysis result and start auto next timer
+watch(() => store.hasSymptomsResult.value, (hasResult) => {
+  if (hasResult) {
+    console.log('Symptoms analysis result received, starting auto next timer')
+    startAutoNextTimer()
+  }
+})
+
 onUnmounted(() => {
   stopAvatarSwitching()
+  stopAutoNextTimer()
 })
 </script>
 
