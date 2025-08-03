@@ -277,9 +277,11 @@
                   {{ reason }}
                 </li>
               </ul>
-              <div class="emergency-advice">
-                <strong>すぐに救急車を呼ぶか、最寄りの救急外来を受診してください。</strong>
-              </div>
+            </div>
+
+            <!-- 緊急時の案内 -->
+            <div v-if="symptomsAnalysisResult.emergency_guidance" class="emergency-advice">
+              <strong>{{ symptomsAnalysisResult.emergency_guidance }}</strong>
             </div>
 
             <!-- 該当する症状カテゴリ -->
@@ -294,18 +296,6 @@
                   {{ category }}
                 </span>
               </div>
-            </div>
-
-            <!-- 詳細分析 -->
-            <div v-if="symptomsAnalysisResult.analysis" class="analysis-detail">
-              <h4>🔍 詳細分析：</h4>
-              <p>{{ symptomsAnalysisResult.analysis }}</p>
-            </div>
-
-            <!-- 推奨事項 -->
-            <div v-if="symptomsAnalysisResult.recommendations" class="recommendations">
-              <h4>💡 推奨事項：</h4>
-              <p>{{ symptomsAnalysisResult.recommendations }}</p>
             </div>
 
             <!-- デバッグ情報 -->
@@ -411,8 +401,7 @@ interface SymptomsAnalysisResult {
   matched_categories: string[];
   is_emergency: boolean;
   emergency_reasons: string[];
-  analysis: string;
-  recommendations: string;
+  emergency_guidance: string | null;
 }
 
 // Refs
@@ -891,8 +880,7 @@ const analyzeSymptomsWithBackend = async (symptomsText: string): Promise<void> =
       matched_categories: Array.isArray(result.matched_categories) ? result.matched_categories : [],
       is_emergency: Boolean(result.is_emergency),
       emergency_reasons: Array.isArray(result.emergency_reasons) ? result.emergency_reasons : [],
-      analysis: String(result.analysis || ''),
-      recommendations: String(result.recommendations || '')
+      emergency_guidance: result.emergency_guidance || null
     }
 
     // Update timestamp to force re-render

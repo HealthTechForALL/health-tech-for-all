@@ -356,9 +356,7 @@ app.post('/api/analyze-symptoms', async (req, res) => {
 {
   "matched_categories": ["該当する症状カテゴリの配列"],
   "is_emergency": boolean,
-  "emergency_reasons": ["緊急の場合、該当する緊急症状の配列"],
-  "analysis": "症状の詳細分析",
-  "recommendations": "推奨される対応や注意点"
+  "emergency_reasons": ["緊急の場合、該当する緊急症状の配列"]
 }
 
 注意：
@@ -398,8 +396,7 @@ app.post('/api/analyze-symptoms', async (req, res) => {
         matched_categories: Array.isArray(parsedResult.matched_categories) ? parsedResult.matched_categories : [],
         is_emergency: parsedResult.is_emergency === true,
         emergency_reasons: Array.isArray(parsedResult.emergency_reasons) ? parsedResult.emergency_reasons : [],
-        analysis: parsedResult.analysis || '',
-        recommendations: parsedResult.recommendations || ''
+        emergency_guidance: parsedResult.is_emergency === true ? "緊急症状が疑われます。直ちに119番に連絡するか、最寄りの救急医療機関を受診してください。" : null
       };
 
       console.log('Parsed symptoms analysis result:', analysisResult);
@@ -465,8 +462,7 @@ app.post('/api/analyze-symptoms', async (req, res) => {
         matched_categories: categories,
         is_emergency: isEmergency,
         emergency_reasons: emergencyReasons,
-        analysis: text,
-        recommendations: "詳細な症状がある場合は医療機関にご相談ください。"
+        emergency_guidance: isEmergency ? "緊急症状が疑われます。直ちに119番に連絡するか、最寄りの救急医療機関を受診してください。" : null
       };
     }
 
