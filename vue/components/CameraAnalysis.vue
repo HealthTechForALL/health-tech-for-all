@@ -465,6 +465,9 @@ const captureAndAnalyze = async (): Promise<void> => {
 
     store.setAnalysisResult(result)
 
+    // 撮影された画像をlocalStorageに直接保存（storeを経由せずに）
+    saveImageToLocalStorage(imageData, result)
+
     // アクティブなタスクがある場合、条件をチェックして自動完了
     console.log('activeTaskId.value before check:', activeTaskId.value)
     if (activeTaskId.value) {
@@ -509,6 +512,53 @@ const captureAndAnalyze = async (): Promise<void> => {
     store.updateCameraStatus({
       isAnalyzing: false
     })
+  }
+}
+
+// Image saving method
+const saveImageToLocalStorage = (imageData: string, result: AnalysisResult): void => {
+  try {
+    // 既存のformDataを取得
+    const existingFormData = JSON.parse(localStorage.getItem('formData') || '{}')
+
+    // 撮影された画像の種類を判定して適切なフィールドに保存
+    let imageFieldName = ''
+
+    if (result.isHealthInsuranceCard) {
+      imageFieldName = 'base64_image_insurance_card'
+      console.log('Saving health insurance card image to localStorage')
+    } else if (result.isMedicineNotebook) {
+      imageFieldName = 'base64_image_medication_notebook'
+      console.log('Saving medicine notebook image to localStorage')
+    } else if (result.isAddressDocument) {
+      imageFieldName = 'base64_image_credentials_information'
+      console.log('Saving address document image to localStorage')
+    } else {
+      // 書類が判定できない場合は、activeTaskIdに基づいて保存
+      if (activeTaskId.value === 'insurance_card') {
+        imageFieldName = 'base64_image_insurance_card'
+        console.log('Saving image as insurance card based on active task')
+      } else if (activeTaskId.value === 'medicine_notebook') {
+        imageFieldName = 'base64_image_medication_notebook'
+        console.log('Saving image as medicine notebook based on active task')
+      } else if (activeTaskId.value === 'address_verification') {
+        imageFieldName = 'base64_image_credentials_information'
+        console.log('Saving image as address document based on active task')
+      } else {
+        console.warn('Cannot determine image type, skipping save')
+        return
+      }
+    }
+
+    // 画像データを更新
+    existingFormData[imageFieldName] = imageData
+
+    // localStorageに保存
+    localStorage.setItem('formData', JSON.stringify(existingFormData))
+    console.log(`Image saved to localStorage as ${imageFieldName}`)
+
+  } catch (error) {
+    console.error('Error saving image to localStorage:', error)
   }
 }
 
