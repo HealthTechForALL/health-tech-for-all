@@ -60,13 +60,13 @@
         </div>
       </div>
 
-      <!-- 症状分析結果表示 -->
+      <!-- まとめ表示 -->
       <div
         v-if="store.hasSymptomsResult.value"
         class="symptoms-analysis-results"
         :key="store.symptomsAnalysisTimestamp.value"
       >
-        <h3>🩺 症状分析結果</h3>
+        <h3>🩺 まとめ</h3>
 
         <!-- お名前・電話番号表示 -->
         <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana || store.patientInfo.value.profile_phone" class="patient-info">
@@ -98,7 +98,7 @@
             {{ store.symptomsAnalysisResult.value!.is_emergency ? '🚨' : '✅' }}
           </span>
           <span class="emergency-text">
-            {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : '通常の症状です' }}
+            {{ store.symptomsAnalysisResult.value!.is_emergency ? '緊急対応が必要な可能性があります' : 'オンライン診療をご利用いただける症状です' }}
           </span>
         </div>
 
@@ -212,7 +212,7 @@ const currentAvatarIndex = ref(0)
 const currentAvatarSrc = computed(() => avatarImages[currentAvatarIndex.value])
 
 // Avatar switching interval
-let avatarInterval: number | null = null
+let avatarInterval: NodeJS.Timeout | null = null
 
 const startAvatarSwitching = () => {
   avatarInterval = setInterval(() => {
