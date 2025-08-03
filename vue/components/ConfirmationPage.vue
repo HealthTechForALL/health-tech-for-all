@@ -5,19 +5,17 @@
     <!-- 症状 -->
     <section>
       <h3>症状</h3>
-      <p>症状：{{ formatValue(data?.symptom?.symptoms) }}</p>
-      <p>発症日：{{ formatValue(data?.symptom?.onsetDate) }}</p>
-      <p>重症度：{{ formatValue(data?.symptom?.severity) }}</p>
-      <p>備考：{{ formatValue(data?.symptom?.remarks) }}</p>
+      <p>症状カテゴリ：{{ formatValue(data?.symptoms_categories) }}</p>
     </section>
 
     <!-- 個人情報 -->
     <section>
       <h3>個人情報</h3>
-      <p>名前：{{ formatValue(data?.profile?.name) }}</p>
-      <p>年齢：{{ formatValue(data?.profile?.age) }}</p>
-      <p>性別：{{ formatValue(data?.profile?.gender) }}</p>
-      <p>住所：{{ formatValue(data?.profile?.address) }}</p>
+      <p>お名前：{{ formatName(data?.profile_name_last_kana, data?.profile_name_first_kana) }}</p>
+      <p>性別：{{ formatValue(data?.profile_gender) }}</p>
+      <p>生年月日：{{ formatBirthday(data?.profile_birthday_year, data?.profile_birthday_month, data?.profile_birthday_day) }}</p>
+      <p>電話番号：{{ formatPhone(data?.profile_phone) }}</p>
+      <p>住所：{{ formatAddress(data) }}</p>
     </section>
 
     <!-- アップロード -->
@@ -27,20 +25,29 @@
         <div class="upload-col">
           <p>保険証：</p>
           <img
-            v-if="toSrc(data?.upload?.insuranceCard)"
-            :src="toSrc(data?.upload?.insuranceCard)"
+            v-if="toSrc(data?.base64_image_insurance_card)"
+            :src="toSrc(data?.base64_image_insurance_card)"
             alt="保険証画像"
           />
-          <p v-else class="placeholder"></p>
+          <p v-else class="placeholder">未アップロード</p>
         </div>
         <div class="upload-col">
           <p>お薬手帳：</p>
           <img
-            v-if="toSrc(data?.upload?.medicationNotebook)"
-            :src="toSrc(data?.upload?.medicationNotebook)"
+            v-if="toSrc(data?.base64_image_medication_notebook)"
+            :src="toSrc(data?.base64_image_medication_notebook)"
             alt="お薬手帳画像"
           />
-          <p v-else class="placeholder"></p>
+          <p v-else class="placeholder">未アップロード</p>
+        </div>
+        <div class="upload-col">
+          <p>身分証明書：</p>
+          <img
+            v-if="toSrc(data?.base64_image_credentials_information)"
+            :src="toSrc(data?.base64_image_credentials_information)"
+            alt="身分証明書画像"
+          />
+          <p v-else class="placeholder">未アップロード</p>
         </div>
       </div>
     </section>
@@ -68,12 +75,53 @@ const toSrc = v => {
 };
 
 const formatValue = v => {
+  if (v === null || v === undefined) return '未入力';
   if (Array.isArray(v)) return v.length ? v.join('、') : '未入力';
+  if (typeof v === 'string' && v.trim() === '') return '未入力';
+  if (typeof v === 'number' && v === 0) return '未入力';
   return v || '未入力';
+};
+
+const formatBirthday = (year, month, day) => {
+  if (!year || !month || !day) return '未入力';
+  return `${year}年${month}月${day}日`;
+};
+
+const formatAddress = (data) => {
+  const parts = [
+    data?.profile_location_zip,
+    data?.profile_location_prefecture,
+    data?.profile_location_municipality,
+    data?.profile_location_town,
+    data?.profile_location_house_number,
+    data?.profile_location_building_and_room_number
+  ].filter(part => part);
+  
+  return parts.length > 0 ? parts.join(' ') : '未入力';
+};
+
+const formatName = (lastName, firstName) => {
+  const last = lastName || '';
+  const first = firstName || '';
+  const fullName = (last + ' ' + first).trim();
+  return fullName || '未入力';
+};
+
+const formatPhone = (phone) => {
+  if (!phone || phone === '0') return '未入力';
+  // 電話番号を整形（例：08011110000 → 080-1111-0000）
+  const cleaned = phone.toString().replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return cleaned.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+  }
+  return phone;
 };
 
 onMounted(async () => {
   data.value = await getData();
+  console.log('ConfirmationPage loaded data:', data.value);
+  console.log('LocalStorage formData:', localStorage.getItem('formData'));
+  console.log('LocalStorage formdata.json:', localStorage.getItem('formdata.json'));
 });
 </script>
 
