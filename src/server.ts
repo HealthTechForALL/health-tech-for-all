@@ -170,8 +170,7 @@ app.post('/api/analyze-image', async (req, res) => {
     "name": "読み取れた氏名（読み取れない場合は空文字）",
     "gender": "読み取れた性別（読み取れない場合は空文字）"
   },
-  "analysis": "詳細な分析結果",
-  "suggestions": "改善点があれば提案"
+  "analysis": "詳細な分析結果"
 }
 
 判定基準：
@@ -244,8 +243,7 @@ app.post('/api/analyze-image', async (req, res) => {
           name: parsedResult.personalInfo?.name || '',
           gender: parsedResult.personalInfo?.gender || ''
         },
-        analysis: parsedResult.analysis || '',
-        suggestions: parsedResult.suggestions || "画像をより鮮明に撮影してください"
+        analysis: parsedResult.analysis || ''
       };
 
       console.log('Parsed analysis result:', analysisResult);
@@ -272,8 +270,7 @@ app.post('/api/analyze-image', async (req, res) => {
           name: '',
           gender: ''
         },
-        analysis: text,
-        suggestions: "画像をより鮮明に撮影してください"
+        analysis: text
       };
     }
 

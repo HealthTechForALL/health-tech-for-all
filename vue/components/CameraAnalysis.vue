@@ -167,15 +167,6 @@
             {{ store.analysisResult.value!.analysis }}
           </div>
 
-          <!-- Suggestions -->
-          <div
-            v-if="store.analysisResult.value!.suggestions"
-            class="suggestions"
-          >
-            <strong>改善提案:</strong><br>
-            {{ store.analysisResult.value!.suggestions }}
-          </div>
-
           <!-- Debug: Raw API Response -->
           <div class="debug-info">
             <details>
@@ -551,14 +542,6 @@ onUnmounted(() => {
   background: white;
   border-radius: 8px;
   line-height: 1.6;
-}
-
-.suggestions {
-  margin-top: 15px;
-  padding: 15px;
-  background: #e3f2fd;
-  border-radius: 8px;
-  border-left: 4px solid #2196f3;
 }
 
 h2 {
