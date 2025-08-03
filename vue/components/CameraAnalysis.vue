@@ -1,7 +1,7 @@
 <template>
   <div class="camera-analysis-container">
     <!-- やることリスト -->
-    <div class="task-list-section">
+    <div ref="taskListRef" class="task-list-section">
       <h3>📋 やることリスト</h3>
       <p class="task-intro">オンライン診療を開始するために、以下の書類をご準備ください：</p>
 
@@ -38,10 +38,10 @@
           </div>
           <div v-if="task.status === 'pending'" class="task-actions">
             <button
-              @click="markTaskCompleted(task.id)"
-              class="btn complete-btn"
+              @click="showDocument(task.id)"
+              class="btn show-btn"
             >
-              完了にする
+              見せる
             </button>
           </div>
         </div>
@@ -55,7 +55,7 @@
     </div>
 
     <!-- Camera Section -->
-    <div class="camera-section">
+    <div ref="cameraSectionRef" class="camera-section">
       <h2>📷 カメラ</h2>
       <div class="camera-container">
         <video
@@ -134,6 +134,15 @@
             <span class="debug-value">isMedicineNotebook: {{ store.analysisResult.value!.isMedicineNotebook }}</span>
           </div>
 
+          <!-- Address Document Status -->
+          <div
+            :class="['status-indicator', getStatusClass(store.analysisResult.value!.isAddressDocument)]"
+          >
+            <span class="status-icon">🏠</span>
+            <span>{{ addressDocumentMessage }}</span>
+            <span class="debug-value">isAddressDocument: {{ store.analysisResult.value!.isAddressDocument }}</span>
+          </div>
+
           <!-- Content Visibility Status -->
           <div
             :class="['status-indicator', getStatusClass(store.analysisResult.value!.isContentVisible)]"
@@ -185,7 +194,6 @@
 
           <!-- Personal Information Reading Status -->
           <div
-            v-if="store.analysisResult.value!.isHealthInsuranceCard"
             :class="['status-indicator', getStatusClass(store.analysisResult.value!.canReadPersonalInfo)]"
           >
             <span class="status-icon">📋</span>
@@ -199,17 +207,17 @@
             class="personal-info-details"
           >
             <h3>📝 読み取った個人情報</h3>
-            <div class="personal-info-item" v-if="store.analysisResult.value!.personalInfo.name">
-              <span class="info-label">氏名:</span>
-              <span class="info-value">{{ store.analysisResult.value!.personalInfo.name }}</span>
-            </div>
-            <div class="personal-info-item" v-if="store.analysisResult.value!.personalInfo.birthDate">
-              <span class="info-label">生年月日:</span>
-              <span class="info-value">{{ store.analysisResult.value!.personalInfo.birthDate }}</span>
-            </div>
-            <div class="personal-info-item" v-if="store.analysisResult.value!.personalInfo.gender">
+            <div class="personal-info-item" v-if="store.analysisResult.value!.profile_gender">
               <span class="info-label">性別:</span>
-              <span class="info-value">{{ store.analysisResult.value!.personalInfo.gender }}</span>
+              <span class="info-value">{{ genderDisplay }}</span>
+            </div>
+            <div class="personal-info-item" v-if="birthdayDisplay">
+              <span class="info-label">生年月日:</span>
+              <span class="info-value">{{ birthdayDisplay }}</span>
+            </div>
+            <div class="personal-info-item" v-if="addressDisplay">
+              <span class="info-label">住所:</span>
+              <span class="info-value">{{ addressDisplay }}</span>
             </div>
           </div>
 
@@ -244,6 +252,9 @@ const store = useAppStore()
 // Refs
 const videoRef = ref<HTMLVideoElement>()
 const canvasRef = ref<HTMLCanvasElement>()
+const activeTaskId = ref<string | null>(null)
+const taskListRef = ref<HTMLDivElement>()
+const cameraSectionRef = ref<HTMLDivElement>()
 
 // Computed messages
 const healthInsuranceMessage = computed(() => {
@@ -258,6 +269,13 @@ const medicineNotebookMessage = computed(() => {
   return store.analysisResult.value.isMedicineNotebook
     ? '✅ おくすり手帳を検出しました'
     : '❌ おくすり手帳は検出されませんでした'
+})
+
+const addressDocumentMessage = computed(() => {
+  if (!store.analysisResult.value) return ''
+  return store.analysisResult.value.isAddressDocument
+    ? '✅ 住所がわかる書類を検出しました'
+    : '❌ 住所がわかる書類は検出されませんでした'
 })
 
 const contentVisibilityMessage = computed(() => {
@@ -303,9 +321,45 @@ const personalInfoMessage = computed(() => {
 })
 
 const hasPersonalInfo = computed(() => {
-  if (!store.analysisResult.value?.personalInfo) return false
-  const info = store.analysisResult.value.personalInfo
-  return !!(info.name || info.birthDate || info.gender)
+  if (!store.analysisResult.value) return false
+  const result = store.analysisResult.value
+  return !!(result.profile_gender ||
+           result.profile_birthday_year ||
+           result.profile_birthday_month ||
+           result.profile_birthday_day ||
+           result.profile_location_zip ||
+           result.profile_location_prefecture ||
+           result.profile_location_municipality)
+})
+
+const genderDisplay = computed(() => {
+  if (!store.analysisResult.value?.profile_gender) return ''
+  return store.analysisResult.value.profile_gender === 'female' ? '女性' :
+         store.analysisResult.value.profile_gender === 'male' ? '男性' : ''
+})
+
+const birthdayDisplay = computed(() => {
+  if (!store.analysisResult.value) return ''
+  const result = store.analysisResult.value
+  if (!result.profile_birthday_year || !result.profile_birthday_month || !result.profile_birthday_day) return ''
+  return `${result.profile_birthday_year}年${result.profile_birthday_month}月${result.profile_birthday_day}日`
+})
+
+const addressDisplay = computed(() => {
+  if (!store.analysisResult.value) return ''
+  const result = store.analysisResult.value
+  const parts = [
+    result.profile_location_prefecture,
+    result.profile_location_municipality,
+    result.profile_location_town,
+    result.profile_location_house_number,
+    result.profile_location_building_and_room_number
+  ].filter(Boolean)
+
+  if (result.profile_location_zip) {
+    return `〒${result.profile_location_zip} ${parts.join('')}`
+  }
+  return parts.join('')
 })
 
 // Camera Methods
@@ -411,6 +465,16 @@ const captureAndAnalyze = async (): Promise<void> => {
 
     store.setAnalysisResult(result)
 
+    // アクティブなタスクがある場合、条件をチェックして自動完了
+    console.log('activeTaskId.value before check:', activeTaskId.value)
+    if (activeTaskId.value) {
+      checkAndCompleteTask(activeTaskId.value, result)
+      // activeTaskIdのリセットはcheckAndCompleteTask内で行うため、ここでは削除
+      console.log('checkAndCompleteTask finished')
+    } else {
+      console.log('No active task ID, skipping auto-completion')
+    }
+
   } catch (error) {
     console.error('Error analyzing image:', error)
 
@@ -453,9 +517,126 @@ const getStatusClass = (isPositive: boolean): string => {
   return isPositive ? 'positive' : 'negative'
 }
 
+// Scroll Methods
+const scrollToCamera = (): void => {
+  if (cameraSectionRef.value) {
+    cameraSectionRef.value.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
+}
+
+const scrollToTaskList = (): void => {
+  if (taskListRef.value) {
+    taskListRef.value.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }
+}
+
 // Task Management Methods
 const markTaskCompleted = (taskId: string): void => {
   store.markTaskCompleted(taskId)
+}
+
+const showDocument = async (taskId: string): Promise<void> => {
+  console.log('showDocument called with taskId:', taskId)
+  console.log('Previous activeTaskId:', activeTaskId.value)
+
+  // カメラを起動
+  await startCamera()
+
+  // 現在のタスクIDを記録（撮影・判定後の自動完了のため）
+  activeTaskId.value = taskId
+  console.log('activeTaskId set to:', activeTaskId.value)
+
+  // カメラセクションへスクロール
+  setTimeout(() => {
+    scrollToCamera()
+  }, 100) // カメラ起動後に少し遅延してスクロール
+}
+
+const checkAndCompleteTask = (taskId: string, result: AnalysisResult): void => {
+  const task = store.taskList.value.items.find(t => t.id === taskId)
+  if (!task) return
+
+  console.log('checkAndCompleteTask called:', { taskId, result })
+
+  let shouldComplete = false
+  let message = ''
+
+  if (taskId === 'insurance_card') {
+    // 健康保険証の場合：検出 + 内容が見える + 真っ直ぐ + 隠れていない
+    shouldComplete = result.isHealthInsuranceCard &&
+                    result.isContentVisible &&
+                    result.isHealthInsuranceCardStraight &&
+                    !result.isHealthInsuranceCardObstructed
+    if (shouldComplete) {
+      message = '✅ 健康保険証の確認が完了しました！'
+    } else {
+      message = '❌ 健康保険証をもう一度撮影してください。\n' +
+                (result.isHealthInsuranceCard ? '' : '・健康保険証が検出されませんでした\n') +
+                (result.isContentVisible ? '' : '・内容が見えにくい状態です\n') +
+                (result.isHealthInsuranceCardStraight ? '' : '・カードが傾いています\n') +
+                (result.isHealthInsuranceCardObstructed ? '・カードが指や反射で隠れています\n' : '') +
+                '条件を満たすように撮影し直してください。'
+    }
+  } else if (taskId === 'medicine_notebook') {
+    // おくすり手帳の場合：検出 + 内容が見える + 隠れていない（傾きは判定しない）
+    shouldComplete = result.isMedicineNotebook &&
+                    result.isContentVisible &&
+                    !result.isMedicineNotebookObstructed
+    if (shouldComplete) {
+      message = '✅ おくすり手帳の確認が完了しました！'
+    } else {
+      message = '❌ おくすり手帳をもう一度撮影してください。\n' +
+                (result.isMedicineNotebook ? '' : '・おくすり手帳が検出されませんでした\n') +
+                (result.isContentVisible ? '' : '・内容が見えにくい状態です\n') +
+                (result.isMedicineNotebookObstructed ? '・手帳が指や反射で隠れています\n' : '') +
+                '条件を満たすように撮影し直してください。'
+    }
+  } else if (taskId === 'address_verification') {
+    // 住所確認書類の場合：健康保険証の判定を使用
+    shouldComplete = result.isHealthInsuranceCard &&
+                    result.isContentVisible &&
+                    result.isHealthInsuranceCardStraight &&
+                    !result.isHealthInsuranceCardObstructed
+    if (shouldComplete) {
+      message = '✅ 住所確認書類の確認が完了しました！'
+    } else {
+      message = '❌ 住所確認書類をもう一度撮影してください。\n' +
+                (result.isHealthInsuranceCard ? '' : '・書類が検出されませんでした\n') +
+                (result.isContentVisible ? '' : '・内容が見えにくい状態です\n') +
+                (result.isHealthInsuranceCardStraight ? '' : '・書類が傾いています\n') +
+                (result.isHealthInsuranceCardObstructed ? '・書類が指や反射で隠れています\n' : '') +
+                '条件を満たすように撮影し直してください。'
+    }
+  }
+
+  console.log('Task completion check:', { taskId, shouldComplete, message })
+
+  if (shouldComplete) {
+    store.markTaskCompleted(taskId)
+    // 成功時のみactiveTaskIdをリセット
+    activeTaskId.value = null
+    alert(message)
+    // アラート後にタスクリストへスクロール
+    setTimeout(() => {
+      scrollToTaskList()
+    }, 100)
+  } else {
+    alert(message)
+    // 失敗の場合はカメラを停止するが、activeTaskIdは保持して再撮影に備える
+    stopCamera()
+    // activeTaskIdはリセットしない（再撮影時に同じタスクを継続するため）
+    console.log('Keeping activeTaskId for retry:', activeTaskId.value)
+    // タスクリストに戻る
+    setTimeout(() => {
+      scrollToTaskList()
+    }, 100)
+  }
 }
 
 const resetAllTasks = (): void => {
@@ -614,6 +795,23 @@ onUnmounted(() => {
 
 .task-actions {
   text-align: right;
+}
+
+.show-btn {
+  background: linear-gradient(45deg, #17a2b8, #138496);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.show-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
 }
 
 .complete-btn {

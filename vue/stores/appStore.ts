@@ -1,36 +1,26 @@
 import { ref, computed, reactive, provide, inject, type Ref, type ComputedRef } from 'vue'
 
 // Type definitions
-export interface PersonalInfo {
-  birthDate: string;
-  name: string;
-  gender: string;
-}
-
-export interface TaskItem {
-  id: string;
-  title: string;
-  description: string;
-  status: 'pending' | 'completed';
-  category: 'document' | 'medicine' | 'address';
-}
-
-export interface TaskList {
-  items: TaskItem[];
-  completedCount: number;
-  totalCount: number;
-}
-
 export interface AnalysisResult {
   isHealthInsuranceCard: boolean;
   isMedicineNotebook: boolean;
+  isAddressDocument: boolean;
   isContentVisible: boolean;
   isHealthInsuranceCardStraight: boolean;
   isMedicineNotebookStraight: boolean;
   isHealthInsuranceCardObstructed: boolean;
   isMedicineNotebookObstructed: boolean;
   canReadPersonalInfo: boolean;
-  personalInfo: PersonalInfo;
+  profile_gender: 'female' | 'male' | '';
+  profile_birthday_year: number | null;
+  profile_birthday_month: number | null;
+  profile_birthday_day: number | null;
+  profile_location_zip: string;
+  profile_location_prefecture: string;
+  profile_location_municipality: string;
+  profile_location_town: string;
+  profile_location_house_number: string;
+  profile_location_building_and_room_number: string;
   analysis: string;
   suggestions: string;
 }
@@ -82,6 +72,20 @@ export interface FormData {
   base64_image_insurance_card: string;
   base64_image_medication_notebook: string;
   base64_image_credentials_information: string;
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'completed';
+  category: 'document' | 'medicine' | 'address';
+}
+
+export interface TaskList {
+  items: TaskItem[];
+  completedCount: number;
+  totalCount: number;
 }
 
 // Store interface
@@ -201,17 +205,23 @@ export function createAppStore(): AppStore {
     analysisResult.value = {
       isHealthInsuranceCard: Boolean(result.isHealthInsuranceCard),
       isMedicineNotebook: Boolean(result.isMedicineNotebook),
+      isAddressDocument: Boolean(result.isAddressDocument),
       isContentVisible: Boolean(result.isContentVisible),
       isHealthInsuranceCardStraight: Boolean(result.isHealthInsuranceCardStraight),
       isMedicineNotebookStraight: Boolean(result.isMedicineNotebookStraight),
       isHealthInsuranceCardObstructed: Boolean(result.isHealthInsuranceCardObstructed),
       isMedicineNotebookObstructed: Boolean(result.isMedicineNotebookObstructed),
       canReadPersonalInfo: Boolean(result.canReadPersonalInfo),
-      personalInfo: {
-        birthDate: String(result.personalInfo?.birthDate || ''),
-        name: String(result.personalInfo?.name || ''),
-        gender: String(result.personalInfo?.gender || '')
-      },
+      profile_gender: result.profile_gender || '',
+      profile_birthday_year: result.profile_birthday_year || null,
+      profile_birthday_month: result.profile_birthday_month || null,
+      profile_birthday_day: result.profile_birthday_day || null,
+      profile_location_zip: result.profile_location_zip || '',
+      profile_location_prefecture: result.profile_location_prefecture || '',
+      profile_location_municipality: result.profile_location_municipality || '',
+      profile_location_town: result.profile_location_town || '',
+      profile_location_house_number: result.profile_location_house_number || '',
+      profile_location_building_and_room_number: result.profile_location_building_and_room_number || '',
       analysis: String(result.analysis || ''),
       suggestions: String(result.suggestions || '')
     }
@@ -342,17 +352,17 @@ export function createAppStore(): AppStore {
         symptoms: allRecognizedText.value || '',
         profile_name_first_kana: patientInfo.value.profile_name_first_kana || '',
         profile_name_last_kana: patientInfo.value.profile_name_last_kana || '',
-        profile_gender: analysisResult.value?.personalInfo?.gender || '',
-        profile_birthday_year: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getFullYear() : 0,
-        profile_birthday_month: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getMonth() + 1 : 0,
-        profile_birthday_day: analysisResult.value?.personalInfo?.birthDate ? new Date(analysisResult.value.personalInfo.birthDate).getDate() : 0,
+        profile_gender: analysisResult.value?.profile_gender || '',
+        profile_birthday_year: analysisResult.value?.profile_birthday_year || 0,
+        profile_birthday_month: analysisResult.value?.profile_birthday_month || 0,
+        profile_birthday_day: analysisResult.value?.profile_birthday_day || 0,
         profile_phone: patientInfo.value.profile_phone || '',
-        profile_location_zip: '',
-        profile_location_prefecture: '',
-        profile_location_municipality: '',
-        profile_location_town: '',
-        profile_location_house_number: '',
-        profile_location_building_and_room_number: '',
+        profile_location_zip: analysisResult.value?.profile_location_zip || '',
+        profile_location_prefecture: analysisResult.value?.profile_location_prefecture || '',
+        profile_location_municipality: analysisResult.value?.profile_location_municipality || '',
+        profile_location_town: analysisResult.value?.profile_location_town || '',
+        profile_location_house_number: analysisResult.value?.profile_location_house_number || '',
+        profile_location_building_and_room_number: analysisResult.value?.profile_location_building_and_room_number || '',
         base64_image_insurance_card: '',
         base64_image_medication_notebook: '',
         base64_image_credentials_information: ''
