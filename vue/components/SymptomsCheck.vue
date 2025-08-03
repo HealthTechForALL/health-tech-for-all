@@ -64,6 +64,28 @@
     >
       <h3>🩺 症状分析結果</h3>
 
+      <!-- お名前・電話番号表示 -->
+      <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana || store.patientInfo.value.profile_phone" class="patient-info">
+        <h4>👤 患者情報：</h4>
+        <div class="info-grid">
+          <div v-if="store.patientInfo.value.profile_name_last_kana || store.patientInfo.value.profile_name_first_kana" class="info-item">
+            <span class="info-label">お名前：</span>
+            <span class="info-value">
+              {{ store.patientInfo.value.profile_name_last_kana }}
+              {{ store.patientInfo.value.profile_name_first_kana }}
+              <span v-if="!store.patientInfo.value.profile_name_last_kana && !store.patientInfo.value.profile_name_first_kana" class="info-missing">（聞き取れませんでした）</span>
+            </span>
+          </div>
+          <div v-if="store.patientInfo.value.profile_phone" class="info-item">
+            <span class="info-label">電話番号：</span>
+            <span class="info-value">
+              {{ store.patientInfo.value.profile_phone }}
+              <span v-if="!store.patientInfo.value.profile_phone" class="info-missing">（聞き取れませんでした）</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- 緊急度表示 -->
       <div
         :class="['emergency-indicator', store.symptomsAnalysisResult.value!.is_emergency ? 'emergency' : 'normal']"
@@ -332,7 +354,7 @@ const startVoiceRecognition = async (): Promise<void> => {
 
   try {
     // 音声案内を再生
-    await speakMessage('症状を教えてください！')
+    await speakMessage('こんにちは！予約受付担当のよやっくまです！お名前・電話番号・症状の順番でお聞かせください！一通りきかせていただいた後は以上ですと言ってください')
 
     if (recognition.value) {
       try {
@@ -630,6 +652,53 @@ onMounted(() => {
   margin-bottom: 10px;
   margin-top: 15px;
   font-size: 1em;
+}
+
+/* 患者情報のスタイル */
+.patient-info {
+  background: #e8f4fd;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.patient-info h4 {
+  color: #0056b3;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.info-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #bee5eb;
+}
+
+.info-label {
+  font-weight: bold;
+  color: #0056b3;
+  min-width: 80px;
+  margin-right: 10px;
+}
+
+.info-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.info-missing {
+  color: #6c757d;
+  font-style: italic;
+  font-weight: normal;
 }
 
 .emergency-indicator {
