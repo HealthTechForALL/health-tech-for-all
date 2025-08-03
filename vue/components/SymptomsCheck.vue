@@ -6,17 +6,15 @@
   </div>
   <div class="right-panel">
     <div class="voice-chat-section">
-      <h2>🩺 症状チェックコーナー</h2>
+      <h2>症状チェックコーナー</h2>
       <div class="voice-intro">
-        <p class="intro-message">はじめまして！「症状を聞かせる」ボタンを押した後、症状を教えてください！</p>
-        <br />
-        <p class="example-message">例）12/04頃から発熱。頭も少し痛い。</p>
+        <p class="intro-message">症状、お名前、電話番号を順番にお聞かせください</p>
       </div>
-      <div class="voice-controls">
+      <div v-if="!store.voiceStatus.value.isRecording && !store.allRecognizedText.value && !store.voiceStatus.value.isProcessing" class="voice-controls">
         <button
           @click="startVoiceRecognition"
           :disabled="!isWebSpeechSupported || store.voiceStatus.value.isProcessing || store.voiceStatus.value.isRecording"
-          class="btn voice-btn"
+          class="btn voice-btn-circle"
         >
           症状を聞かせる
         </button>
@@ -33,7 +31,7 @@
           {{ store.voiceStatus.value.error }}
         </div>
       </div>
-      <div class="voice-display">
+      <div v-if="store.voiceStatus.value.isRecording || store.allRecognizedText.value || store.voiceStatus.value.isProcessing" class="voice-display">
         <div class="transcript-area">
           <h3>📝 お伺い内容</h3>
           <div
@@ -537,6 +535,10 @@ onUnmounted(() => {
   box-sizing: border-box;
   overflow-y: auto;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Voice Chat Section Styles */
@@ -544,6 +546,8 @@ onUnmounted(() => {
   background: white;
   border-radius: 15px;
   padding: 25px;
+  width: 100%;
+  max-width: 600px;
 }
 
 .voice-intro {
@@ -552,7 +556,7 @@ onUnmounted(() => {
 }
 
 .intro-message {
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  background: linear-gradient(135deg, #e3f2fd 0%, #e3f2fd 100%);
   color: #1976d2;
   padding: 15px 20px;
   border-radius: 25px;
@@ -578,10 +582,15 @@ onUnmounted(() => {
 .voice-controls {
   text-align: center;
   margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
 }
 
 .voice-btn {
-  background: linear-gradient(45deg, #4CAF50, #45a049);
+  background: linear-gradient(45deg, #164a9b, #164a9b);
   color: white;
   border: none;
   padding: 12px 25px;
@@ -592,11 +601,38 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
+.voice-btn-circle {
+  background: linear-gradient(45deg, #164a9b, #164a9b);
+  color: white;
+  border: none;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .voice-btn:hover:not(:disabled) {
   transform: translateY(-2px);
 }
 
+.voice-btn-circle:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
 .voice-btn.recording {
+  background: linear-gradient(45deg, #f44336, #d32f2f);
+  animation: pulse 2s infinite;
+}
+
+.voice-btn-circle.recording {
   background: linear-gradient(45deg, #f44336, #d32f2f);
   animation: pulse 2s infinite;
 }
@@ -620,6 +656,14 @@ onUnmounted(() => {
   animation: none;
 }
 
+.voice-btn-circle:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  animation: none;
+  box-shadow: none;
+}
+
 .error-message {
   background: #f8d7da;
   color: #721c24;
@@ -630,14 +674,14 @@ onUnmounted(() => {
 }
 
 .voice-display {
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .transcript-area {
   background: #f8f9fa;
   border-radius: 10px;
-  padding: 20px;
-  border-left: 5px solid #4CAF50;
+  padding: 15px;
+  border-left: 5px solid #164a9b;
 }
 
 .transcript-area h3 {
@@ -656,12 +700,12 @@ onUnmounted(() => {
 }
 
 .transcript-content.listening {
-  border-color: #4CAF50;
+  border-color: #164a9b;
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
 }
 
 .listening-indicator {
-  color: #4CAF50;
+  color: #164a9b;
   font-style: italic;
   text-align: center;
   padding: 20px;
@@ -695,7 +739,7 @@ onUnmounted(() => {
   padding: 10px;
   background: #e8f5e8;
   border-radius: 6px;
-  border-left: 4px solid #4CAF50;
+  border-left: 4px solid #164a9b;
 }
 
 .waiting-voice {
@@ -711,7 +755,7 @@ onUnmounted(() => {
   background: #f8f9fa;
   border-radius: 10px;
   padding: 20px;
-  border-left: 5px solid #28a745;
+  border-left: 5px solid #164a9b;
 }
 
 .symptoms-analysis-results h3 {
