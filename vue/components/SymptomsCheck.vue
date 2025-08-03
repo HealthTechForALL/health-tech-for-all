@@ -8,7 +8,7 @@
     <div class="voice-chat-section">
       <h2>症状チェックコーナー</h2>
       <div class="voice-intro">
-        <p class="intro-message">症状、お名前、電話番号を順番にお聞かせください</p>
+        <p class="intro-message">お名前、電話番号、症状を順番にお聞かせください</p>
       </div>
       <div v-if="!store.voiceStatus.value.isRecording && !store.allRecognizedText.value && !store.voiceStatus.value.isProcessing" class="voice-controls">
         <button
