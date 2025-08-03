@@ -13,7 +13,7 @@
     </div>
 
     <!-- 3ステップ構成 -->
-    <div v-else-if="step <= 3" class="wizard">
+    <div v-else class="wizard">
       <Stepper :current-step="step" />
       <div class="card">
         <!-- ステップ1: 症状チェック -->
@@ -21,14 +21,14 @@
           <SymptomsCheck />
         </div>
         
-        <!-- ステップ2: カメラ分析1 -->
+        <!-- ステップ2: カメラ分析 -->
         <div v-else-if="step === 2">
           <CameraAnalysis />
         </div>
         
-        <!-- ステップ3: カメラ分析2 -->
+        <!-- ステップ3: 確認ページ -->
         <div v-else-if="step === 3">
-          <CameraAnalysis />
+          <Confirmation @reset="reset" />
         </div>
       </div>
       
@@ -44,24 +44,18 @@
         <button 
           v-if="step < 3"
           @click="next" 
-          :disabled="step === 3"
           class="next-btn"
         >
           次へ
         </button>
         <button 
           v-if="step === 3"
-          @click="showConfirmation" 
+          @click="reset" 
           class="next-btn"
         >
-          確認
+          最初に戻る
         </button>
       </div>
-    </div>
-
-    <!-- 確認ページ -->
-    <div v-else class="card confirm-wrapper">
-      <Confirmation @reset="reset" />
     </div>
   </div>
 </template>
@@ -80,18 +74,14 @@ import Confirmation  from './components/ConfirmationPage.vue';
 provideAppStore()
 
 const started = ref(false);
-const step    = ref(1); // 1〜3: 入力, 4: 確認
+const step    = ref(1); // 1〜3: 入力
 
 const next = () => {
-  step.value = Math.min(step.value + 1, 4);
+  step.value = Math.min(step.value + 1, 3);
 };
 
 const prev = () => {
   step.value = Math.max(step.value - 1, 1);
-};
-
-const showConfirmation = () => {
-  step.value = 4;
 };
 
 const reset = () => {

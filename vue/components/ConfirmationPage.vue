@@ -44,8 +44,6 @@
         </div>
       </div>
     </section>
-
-    <button class="reset-btn" @click="onReset">最初に戻る</button>
   </div>
 </template>
 

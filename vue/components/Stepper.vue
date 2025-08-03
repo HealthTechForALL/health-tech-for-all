@@ -29,8 +29,8 @@ const props = defineProps({
 
 const steps = computed(() => [
   { id: 1, label: '症状入力' },
-  { id: 2, label: '個人情報' },
-  { id: 3, label: '保険証' }
+  { id: 2, label: 'カメラ分析' },
+  { id: 3, label: '確認' }
 ]);
 </script>
 
